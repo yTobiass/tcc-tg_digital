@@ -1,0 +1,15 @@
+{
+  "name": "tiro-de-guerra",
+  "version": "1.0.0",
+  "description": "Sistema de Gestão do Tiro de Guerra 02-032",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently --names \"backend,frontend\" --prefix-colors \"blue,green\" \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "build": "npm run build --prefix frontend",
+    "migrate": "npm run migrate --prefix backend",
+    "migrate:rollback": "npm run migrate:rollback --prefix backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

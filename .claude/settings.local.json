@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(New-Item *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Tobias\\\\Desktop\\\\tcc\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)",
+      "Bash(node -e ' *)",
+      "Bash(node *)",
+      "Bash(curl -s http://localhost:3001/api/health)",
+      "Bash(kill %1)",
+      "Bash(npx vite *)",
+      "Bash(npm run *)"
+    ]
+  }
+}
