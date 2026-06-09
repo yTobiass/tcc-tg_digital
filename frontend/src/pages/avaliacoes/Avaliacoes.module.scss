@@ -1,0 +1,64 @@
+@use 'mixins' as m;
+
+.header { @include m.page-header; }
+.pageTitle { font-size: var(--fs-xl); font-weight: 700; color: var(--clr-gray-800); }
+.btnNew { @include m.btn-primary; }
+
+.filterBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.searchInput { @include m.input; width: 256px; }
+.select      { @include m.input; width: auto; }
+
+.tableWrap {
+  @include m.card;
+  overflow: hidden;
+}
+
+.tableEmpty { @include m.empty-state; }
+
+.table {
+  @include m.table-base;
+  thead tr { @include m.table-head; }
+  tbody     { @include m.table-body; }
+}
+
+.soldadoName { font-weight: 500; color: var(--clr-gray-800); }
+.soldadoRa   { font-size: var(--fs-xs); color: var(--clr-gray-400); }
+.centered    { text-align: center; }
+.boldValue   { font-weight: 700; color: var(--clr-gray-800); }
+
+.conceitoBadge {
+  @include m.badge-base;
+}
+
+// TAF concept colors
+.excelente  { background: var(--clr-primary-100); color: #166534; }
+.muitoBom   { background: #dcfce7; color: #166534; }
+.bom        { background: var(--clr-blue-100); color: var(--clr-blue-800); }
+.regular    { background: var(--clr-yellow-100); color: var(--clr-yellow-800); }
+.insuf      { background: var(--clr-red-100); color: var(--clr-red-800); }
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.actionBtn {
+  font-size: var(--fs-xs);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: text-decoration var(--transition-fast);
+  &:hover { text-decoration: underline; }
+
+  &--blue  { color: var(--clr-blue-600); }
+  &--green { color: var(--clr-primary-600); }
+  &--red   { color: var(--clr-red-500); }
+}

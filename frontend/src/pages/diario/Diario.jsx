@@ -1,19 +1,20 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Layout }        from '../../components/layout/Layout';
 import { diarioService } from '../../services/diarioService';
-import { formatarData, hoje } from '../../utils/data';
-import { gerarPdfDiario }    from '../../utils/diarioPDF';
-import DiarioForm   from './DiarioForm';
+import { formatarData }  from '../../utils/data';
+import { gerarPdfDiario } from '../../utils/diarioPDF';
+import DiarioForm from './DiarioForm';
+import styles from './Diario.module.scss';
 
 function BadgePdf({ gerado }) {
   return gerado
-    ? <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">PDF gerado</span>
-    : <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-50 text-yellow-700">Rascunho</span>;
+    ? <span className={styles.badgePdf}>PDF gerado</span>
+    : <span className={styles.badgeDraft}>Rascunho</span>;
 }
 
 export default function Diario() {
-  const [view,       setView]       = useState('lista'); // 'lista' | 'form'
-  const [editando,   setEditando]   = useState(null);    // null | objeto diário
+  const [view,       setView]       = useState('lista');
+  const [editando,   setEditando]   = useState(null);
   const [diarios,    setDiarios]    = useState([]);
   const [total,      setTotal]      = useState(0);
   const [carregando, setCarregando] = useState(true);
@@ -36,13 +37,9 @@ export default function Diario() {
 
   useEffect(() => { carregar(0); }, [carregar]);
 
-  function abrirNovo() {
-    setEditando(null);
-    setView('form');
-  }
+  function abrirNovo() { setEditando(null); setView('form'); }
 
   async function abrirEditar(d) {
-    // Busca dados completos pelo dia (inclui postos_sentinela e atiradores parseados)
     try {
       const completo = await diarioService.buscarPorData(d.data_servico);
       setEditando(completo);
@@ -72,86 +69,67 @@ export default function Diario() {
   }
 
   if (view === 'form') {
-    return (
-      <DiarioForm
-        inicial={editando}
-        onSalvo={onSalvo}
-        onCancelar={() => setView('lista')}
-      />
-    );
+    return <DiarioForm inicial={editando} onSalvo={onSalvo} onCancelar={() => setView('lista')} />;
   }
 
   return (
     <Layout>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-bold text-gray-800">Diário de Rotina</h1>
-          <p className="text-xs text-gray-400 mt-0.5">{total} registro{total !== 1 ? 's' : ''}</p>
+      <div className={styles.header}>
+        <div className={styles.titleGroup}>
+          <h1 className={styles.pageTitle}>Diário de Rotina</h1>
+          <p className={styles.counter}>{total} registro{total !== 1 ? 's' : ''}</p>
         </div>
-        <button
-          onClick={abrirNovo}
-          className="px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700"
-        >
-          + Novo Diário
-        </button>
+        <button onClick={abrirNovo} className={styles.btnNew}>+ Novo Diário</button>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className={styles.tableWrap}>
         {carregando ? (
-          <div className="p-10 text-center text-gray-400 text-sm">Carregando…</div>
+          <div className={styles.tableEmpty}>Carregando…</div>
         ) : diarios.length === 0 ? (
-          <div className="p-10 text-center text-gray-400 text-sm">
+          <div className={styles.tableEmpty}>
             Nenhum diário registrado ainda.
-            <br />
-            <button onClick={abrirNovo} className="mt-2 text-green-600 hover:underline text-sm">
+            <button onClick={abrirNovo} className={styles.firstLink}>
               Registrar o primeiro diário
             </button>
           </div>
         ) : (
           <>
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-left">
-                  <th className="px-5 py-3">Dia do serviço</th>
-                  <th className="px-5 py-3">Para o dia</th>
-                  <th className="px-5 py-3">Parada diária</th>
-                  <th className="px-5 py-3">Situação</th>
-                  <th className="px-5 py-3"></th>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Dia do serviço</th>
+                  <th>Para o dia</th>
+                  <th>Parada diária</th>
+                  <th>Registrado por</th>
+                  <th>Situação</th>
+                  <th></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody>
                 {diarios.map((d) => (
-                  <tr key={d.id} className="hover:bg-gray-50">
-                    <td className="px-5 py-3 font-medium text-gray-800">{formatarData(d.data_servico)}</td>
-                    <td className="px-5 py-3 text-gray-500">{formatarData(d.data_para)}</td>
-                    <td className="px-5 py-3">
-                      <span className={`text-xs font-medium ${d.parada_diaria_status === 'Com Alteração' ? 'text-red-600' : 'text-gray-500'}`}>
+                  <tr key={d.id}>
+                    <td className={styles.boldCell}>{formatarData(d.data_servico)}</td>
+                    <td className={styles.muteCell}>{formatarData(d.data_para)}</td>
+                    <td>
+                      <span className={d.parada_diaria_status === 'Com Alteração' ? styles.comAlteracao : styles.semAlteracao}>
                         {d.parada_diaria_status}
                       </span>
                     </td>
-                    <td className="px-5 py-3"><BadgePdf gerado={d.pdf_gerado} /></td>
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-3 justify-end">
+                    <td className={styles.muteCell}>{d.registrado_por_nome || '—'}</td>
+                    <td><BadgePdf gerado={d.pdf_gerado} /></td>
+                    <td>
+                      <div className={styles.actions}>
                         {d.pdf_gerado ? (
                           <>
-                            <button
-                              onClick={() => reimprimir(d)}
-                              className="text-xs text-blue-600 hover:underline"
-                            >
+                            <button onClick={() => reimprimir(d)} className={`${styles.actionBtn} ${styles['actionBtn--blue']}`}>
                               Reimprimir PDF
                             </button>
-                            <button
-                              onClick={() => abrirEditar(d)}
-                              className="text-xs text-gray-400 hover:underline"
-                            >
+                            <button onClick={() => abrirEditar(d)} className={`${styles.actionBtn} ${styles['actionBtn--muted']}`}>
                               Visualizar
                             </button>
                           </>
                         ) : (
-                          <button
-                            onClick={() => abrirEditar(d)}
-                            className="text-xs text-green-600 hover:underline"
-                          >
+                          <button onClick={() => abrirEditar(d)} className={`${styles.actionBtn} ${styles['actionBtn--green']}`}>
                             Editar
                           </button>
                         )}
@@ -163,11 +141,11 @@ export default function Diario() {
             </table>
 
             {diarios.length < total && (
-              <div className="p-4 text-center border-t border-gray-100">
+              <div className={styles.loadMore}>
                 <button
                   onClick={() => carregar(offset + LIMIT)}
                   disabled={paginando}
-                  className="text-sm text-green-600 hover:underline disabled:opacity-40"
+                  className={styles.loadMoreBtn}
                 >
                   {paginando ? 'Carregando…' : `Ver mais (${total - diarios.length} restantes)`}
                 </button>

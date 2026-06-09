@@ -1,0 +1,73 @@
+@use 'mixins' as m;
+
+.stack { display: flex; flex-direction: column; gap: 16px; }
+
+.modeloBar {
+  background: var(--clr-gray-50);
+  border: 1px solid var(--clr-gray-200);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modeloTitle  { font-size: var(--fs-sm); font-weight: 500; color: var(--clr-gray-700); }
+.modeloDesc   { font-size: var(--fs-xs); color: var(--clr-gray-500); margin-top: 2px; }
+
+.downloadBtn {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--clr-primary-700);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+  &:hover:not(:disabled) { color: var(--clr-primary-900); }
+}
+
+.uploadLabel { font-size: var(--fs-sm); font-weight: 500; color: var(--clr-gray-700); margin-bottom: 8px; }
+
+.dropZone {
+  border: 2px dashed var(--clr-gray-300);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+
+  &:hover { border-color: var(--clr-primary-600); }
+}
+
+.dropText  { font-size: var(--fs-sm); color: var(--clr-gray-400); }
+.dropFile  { font-size: var(--fs-sm); font-weight: 500; color: var(--clr-gray-700); }
+
+.resultSuccess { @include m.alert(var(--clr-primary-50), var(--clr-primary-200), #166534); }
+.resultWarn    { @include m.alert(var(--clr-yellow-50), var(--clr-yellow-200), var(--clr-yellow-800)); }
+.resultTitle   { font-weight: 500; }
+.errorList     { margin-top: 8px; padding-left: 16px; list-style: disc; }
+.errorItem     { font-size: var(--fs-xs); margin-top: 2px; }
+
+.errorMsg { @include m.alert(var(--clr-red-50), var(--clr-red-200), var(--clr-red-600)); font-size: var(--fs-sm); }
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding-top: 8px;
+}
+
+.cancelBtn {
+  padding: 8px 16px;
+  font-size: var(--fs-sm);
+  color: var(--clr-gray-600);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+  &:hover { color: var(--clr-gray-800); }
+}
+
+.importBtn { @include m.btn-primary; }

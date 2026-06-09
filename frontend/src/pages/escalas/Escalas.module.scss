@@ -1,0 +1,293 @@
+@use 'mixins' as m;
+
+.header { @include m.page-header; }
+.pageTitle { font-size: var(--fs-xl); font-weight: 700; color: var(--clr-gray-800); }
+.btnNew { @include m.btn-primary; }
+
+.tabs { @include m.tab-bar; }
+
+.tab {
+  @include m.tab-btn;
+  &--active { border-bottom-color: var(--clr-primary-700); color: var(--clr-primary-700); }
+}
+
+// ── Calendar ──────────────────────────────────────────────────────────────────
+.calNav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.calNavBtn { @include m.btn-secondary; padding: 6px 12px; }
+
+.calMonth {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--clr-gray-700);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-size: var(--fs-xs);
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--clr-gray-500);
+}
+
+.legendDot {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-sm);
+
+  &--verde    { background: #22c55e; }
+  &--preta    { background: var(--clr-gray-700); }
+  &--vermelha { background: #ef4444; }
+  &--blocked  { background: var(--clr-gray-200); }
+}
+
+.calHint {
+  font-size: var(--fs-xs);
+  color: var(--clr-gray-400);
+  margin-bottom: 16px;
+}
+
+.calCard {
+  @include m.card;
+  padding: 16px;
+}
+
+.calLoading { @include m.empty-state; height: 192px; }
+
+// Days header row
+.calHeader {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 4px;
+}
+
+.dayLabel {
+  text-align: center;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--clr-gray-400);
+  padding: 8px 0;
+}
+
+// Grid of cells
+.calGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.calCell {
+  min-height: 44px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--clr-gray-100);
+  padding: 4px;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  background: #fff;
+  user-select: none;
+
+  @include m.sm { min-height: 70px; padding: 6px; }
+
+  &:hover { border-color: var(--clr-gray-300); box-shadow: var(--shadow-sm); }
+
+  &--today {
+    border-color: var(--clr-primary-400);
+    box-shadow: 0 0 0 1px var(--clr-primary-300);
+  }
+
+  &--blocked {
+    background: var(--clr-gray-50);
+    cursor: default;
+    opacity: 0.6;
+  }
+}
+
+.calDayNum {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: var(--clr-gray-600);
+
+  &--today { color: var(--clr-primary-600); }
+}
+
+.calBlockedTag {
+  font-size: var(--fs-xs);
+  background: var(--clr-gray-200);
+  color: var(--clr-gray-500);
+  border-radius: var(--radius-sm);
+  padding: 2px 4px;
+  text-align: center;
+}
+
+.calEscalaTag {
+  font-size: var(--fs-xs);
+  border-radius: var(--radius-sm);
+  padding: 2px 4px;
+  margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &--verde    { background: #22c55e; color: #fff; }
+  &--preta    { background: var(--clr-gray-700); color: #fff; }
+  &--vermelha { background: #ef4444; color: #fff; }
+}
+
+.calTagLabel  { display: none; @include m.sm { display: inline; } }
+.calTagDot    { display: inline; @include m.sm { display: none; } }
+
+.calMore { font-size: var(--fs-xs); color: var(--clr-gray-400); text-align: center; }
+
+// ── Fila de rotação ───────────────────────────────────────────────────────────
+.filaHint {
+  font-size: var(--fs-xs);
+  color: var(--clr-gray-400);
+  margin-bottom: 16px;
+}
+
+.typeBtns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.typeBtn {
+  @include m.btn-secondary;
+  padding: 6px 16px;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+
+  &--verde    { background: #22c55e; color: #fff; border-color: #22c55e; }
+  &--preta    { background: var(--clr-gray-700); color: #fff; border-color: var(--clr-gray-700); }
+  &--vermelha { background: #ef4444; color: #fff; border-color: #ef4444; }
+}
+
+.filaLoading { @include m.empty-state; height: 128px; }
+.filaEmpty   { @include m.empty-state; height: 128px; }
+
+.filaTable {
+  @include m.card;
+  overflow: hidden;
+  overflow-x: auto;
+}
+
+.table {
+  @include m.table-base;
+  min-width: 560px;
+  thead tr { @include m.table-head; }
+  tbody     { @include m.table-body; }
+}
+
+.posBubble {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  background: var(--clr-gray-100);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--clr-gray-700);
+}
+
+.soldadoName { font-weight: 500; color: var(--clr-gray-800); }
+.soldadoRa   { font-size: var(--fs-xs); color: var(--clr-gray-400); }
+
+.gradBadge {
+  @include m.badge-base;
+  &--cabo     { background: var(--clr-gray-200); color: var(--clr-gray-700); }
+  &--atirador { background: var(--clr-blue-50); color: var(--clr-blue-700); }
+}
+
+.statusText {
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  &--ativo      { color: var(--clr-primary-700); }
+  &--licenca    { color: var(--clr-yellow-600); }
+  &--baixado    { color: var(--clr-red-600); }
+  &--dispensado { color: var(--clr-gray-400); }
+}
+
+.moveActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.moveBtn { @include m.btn-ghost; font-size: var(--fs-xs); padding: 2px 4px; }
+.punirBtn { color: var(--clr-red-600); }
+.adiarBtn { color: var(--clr-yellow-600); }
+.sepText  { color: var(--clr-gray-300); }
+
+// ── Bloqueios ─────────────────────────────────────────────────────────────────
+.bloqueiosStack { display: flex; flex-direction: column; gap: 20px; }
+
+.bloqueioCard {
+  @include m.card;
+  padding: 20px;
+}
+
+.bloqueioTitle {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--clr-gray-700);
+  margin-bottom: 4px;
+}
+
+.bloqueioDesc {
+  font-size: var(--fs-xs);
+  color: var(--clr-gray-400);
+  margin-bottom: 12px;
+}
+
+.bloqueioForm { display: flex; flex-direction: column; gap: 12px; }
+
+.bloqueioGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  @include m.sm { grid-template-columns: repeat(2, 1fr); }
+}
+
+.bloqueioLabel {
+  display: block;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--clr-gray-600);
+  margin-bottom: 4px;
+}
+
+.bloqueioInput  { @include m.input; }
+.bloqueioFooter { display: flex; justify-content: flex-end; }
+.bloqueioBtn    { @include m.btn-primary; }
+.bloqueioError  { font-size: var(--fs-sm); color: var(--clr-red-600); }
+
+.tableWrap {
+  @include m.card;
+  overflow: hidden;
+}
+
+.removeBtn {
+  font-size: var(--fs-xs);
+  color: var(--clr-red-500);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  &:hover { text-decoration: underline; }
+}

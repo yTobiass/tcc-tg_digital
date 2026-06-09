@@ -1,16 +1,18 @@
+import styles from './Badge.module.scss';
+
 const CONFIG = {
-  ativo:       { cor: 'bg-green-100 text-green-800',  label: 'Ativo' },
-  licenca:     { cor: 'bg-yellow-100 text-yellow-800', label: 'Licença' },
-  baixado:     { cor: 'bg-red-100 text-red-800',       label: 'Baixado' },
-  dispensado:  { cor: 'bg-gray-100 text-gray-600',     label: 'Dispensado' },
-  cabo:        { cor: 'bg-blue-100 text-blue-800',     label: 'Cabo' },
-  atirador:    { cor: 'bg-gray-100 text-gray-700',     label: 'Atirador' },
+  ativo:       { cls: styles.ativo,      label: 'Ativo' },
+  licenca:     { cls: styles.licenca,    label: 'Licença' },
+  baixado:     { cls: styles.baixado,    label: 'Baixado' },
+  dispensado:  { cls: styles.dispensado, label: 'Dispensado' },
+  cabo:        { cls: styles.cabo,       label: 'Cabo' },
+  atirador:    { cls: styles.atirador,   label: 'Atirador' },
 };
 
 export function Badge({ value }) {
-  const { cor, label } = CONFIG[value] ?? { cor: 'bg-gray-100 text-gray-700', label: value };
+  const { cls, label } = CONFIG[value] ?? { cls: styles.atirador, label: value };
   return (
-    <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full ${cor}`}>
+    <span className={`${styles.badge} ${cls}`}>
       {label}
     </span>
   );

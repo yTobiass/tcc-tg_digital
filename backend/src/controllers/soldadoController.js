@@ -14,14 +14,35 @@ const schemaSoldado = z.object({
 });
 
 function listar(req, res) {
+  // Regra de Negócio nº 7: um soldado só enxerga o próprio cadastro.
+  if (req.user.role === 'soldado') {
+    if (!req.user.soldado_id) return res.json([]);
+    const proprio = model.buscarPorId(req.user.soldado_id);
+    return res.json(proprio ? [proprio] : []);
+  }
   const { turma, pelotao, status, graduacao, busca } = req.query;
   res.json(model.listar({ turma, pelotao, status, graduacao, busca }));
 }
 
 function buscarPorId(req, res) {
-  const soldado = model.buscarPorId(Number(req.params.id));
+  const id = Number(req.params.id);
+  // Regra de Negócio nº 7: um soldado só pode acessar os próprios dados.
+  if (req.user.role === 'soldado' && id !== req.user.soldado_id) {
+    return res.status(403).json({ error: 'Acesso negado.' });
+  }
+  const soldado = model.buscarPorId(id);
   if (!soldado) return res.status(404).json({ error: 'Soldado não encontrado.' });
   res.json(soldado);
+}
+
+function guardas(req, res) {
+  const id = Number(req.params.id);
+  // Regra de Negócio nº 7: um soldado só acessa o próprio histórico.
+  if (req.user.role === 'soldado' && id !== req.user.soldado_id) {
+    return res.status(403).json({ error: 'Acesso negado.' });
+  }
+  if (!model.buscarPorId(id)) return res.status(404).json({ error: 'Soldado não encontrado.' });
+  res.json(model.guardasDoSoldado(id));
 }
 
 function criar(req, res) {
@@ -141,4 +162,4 @@ function modeloPlanilha(_req, res) {
   res.send(buffer);
 }
 
-module.exports = { listar, buscarPorId, criar, atualizar, importar, modeloPlanilha };
+module.exports = { listar, buscarPorId, guardas, criar, atualizar, importar, modeloPlanilha };

@@ -1,25 +1,58 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Modal }          from '../../components/ui/Modal';
 import { escalasService } from '../../services/escalasService';
 import { gerarPdfEscala } from '../../utils/escalaPDF';
 import { formatarData }   from '../../utils/data';
+import styles from './EscalaModal.module.scss';
 
-const TIPO_COR = {
-  verde:    { bg: 'bg-green-100',  text: 'text-green-800',  border: 'border-green-300' },
-  preta:    { bg: 'bg-gray-200',   text: 'text-gray-800',   border: 'border-gray-400'  },
-  vermelha: { bg: 'bg-red-100',    text: 'text-red-800',    border: 'border-red-300'   },
-};
 const TIPO_LABEL = { verde: 'Verde', preta: 'Preta', vermelha: 'Vermelha' };
 const FUNC_LABEL = { cabo: 'Monitor/Cabo', atirador: 'Atirador' };
 
-// ── Modo: detalhe de escala existente ────────────────────────────────────────
+// ── Detalhe da escala ─────────────────────────────────────────────────────────
 
 function DetalheEscala({ escala, onFechar, onAtualizar }) {
-  const cor = TIPO_COR[escala.tipo] ?? TIPO_COR.verde;
   const cabo = escala.membros?.find((m) => m.funcao === 'cabo');
   const ats  = escala.membros?.filter((m) => m.funcao === 'atirador') ?? [];
-
   const [mudandoStatus, setMudandoStatus] = useState(false);
+
+  // Troca manual de membro
+  const [todos,      setTodos]      = useState([]);
+  const [trocandoId, setTrocandoId] = useState(null); // soldado_id a remover
+  const [novoId,     setNovoId]     = useState('');
+  const [motivo,     setMotivo]     = useState('');
+  const [salvando,   setSalvando]   = useState(false);
+  const [erro,       setErro]       = useState(null);
+
+  const editavel = escala.status === 'agendada' || escala.status === 'em_andamento';
+
+  useEffect(() => {
+    if (!editavel) return;
+    escalasService.sugestao(escala.tipo, escala.data_inicio)
+      .then((res) => setTodos(res.todosSoldados ?? []))
+      .catch(() => setTodos([])); // data bloqueada etc. → troca indisponível
+  }, [escala.tipo, escala.data_inicio, editavel]);
+
+  function abrirTroca(soldadoId) {
+    setTrocandoId(soldadoId);
+    setNovoId('');
+    setMotivo('');
+    setErro(null);
+  }
+
+  async function confirmarTroca() {
+    if (!novoId) { setErro('Selecione o soldado substituto.'); return; }
+    setSalvando(true);
+    setErro(null);
+    try {
+      const atualizado = await escalasService.trocarMembro(escala.id, trocandoId, Number(novoId), motivo || null);
+      onAtualizar(atualizado);
+    } catch (e) {
+      const msg = e?.response?.data?.error;
+      setErro(typeof msg === 'string' ? msg : 'Erro ao trocar membro.');
+    } finally {
+      setSalvando(false);
+    }
+  }
 
   async function mudarStatus(novoStatus) {
     setMudandoStatus(true);
@@ -38,66 +71,89 @@ function DetalheEscala({ escala, onFechar, onAtualizar }) {
     cancelada:    [],
   };
 
+  // Membro escalado com botão de troca + formulário inline.
+  function MembroRow({ membro, badgeClass, badgeLabel }) {
+    const idsNaEscala = new Set((escala.membros ?? []).map((m) => m.soldado_id));
+    const grad = membro.funcao; // 'cabo' | 'atirador'
+    const opcoes = todos.filter((s) => s.graduacao === grad && !idsNaEscala.has(s.soldado_id));
+    const aberto = trocandoId === membro.soldado_id;
+
+    return (
+      <div className={styles.pessoalRow} style={{ flexWrap: 'wrap' }}>
+        <span className={`${styles.funcaoBadge} ${badgeClass}`}>{badgeLabel}</span>
+        <span className={styles.membroNome}>{membro.nome_completo}</span>
+        <span className={styles.membroRa}>{membro.ra}</span>
+        {membro.motivo_repeticao && (
+          <span className={styles.membroRa} title="Motivo da troca">↻ {membro.motivo_repeticao}</span>
+        )}
+        {editavel && !aberto && (
+          <button type="button" onClick={() => abrirTroca(membro.soldado_id)} className={styles.moveBtn}
+            style={{ marginLeft: 'auto' }}>
+            Trocar
+          </button>
+        )}
+        {aberto && (
+          <div style={{ width: '100%', marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <select value={novoId} onChange={(e) => setNovoId(e.target.value)} className={styles.membroSelect}>
+              <option value="">Selecione o substituto ({grad})…</option>
+              {opcoes.map((s) => (
+                <option key={s.soldado_id} value={s.soldado_id}>{s.nome_completo} — {s.ra}</option>
+              ))}
+            </select>
+            <input type="text" value={motivo} maxLength={200}
+              onChange={(e) => setMotivo(e.target.value)} placeholder="Motivo da troca (opcional)"
+              className={styles.input} />
+            {erro && <p className={styles.error}>{erro}</p>}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" disabled={salvando} onClick={confirmarTroca} className={styles.btnStatus}>
+                {salvando ? 'Trocando…' : 'Confirmar troca'}
+              </button>
+              <button type="button" onClick={() => setTrocandoId(null)} className={styles.moveBtn}>Cancelar</button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <Modal aberto titulo="Detalhes da Escala" onFechar={onFechar} largura="max-w-lg">
-      <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <span className={`px-3 py-1 rounded-full text-sm font-semibold ${cor.bg} ${cor.text}`}>
+      <div className={styles.detailStack}>
+        <div className={styles.chipRow}>
+          <span className={`${styles.tipoChip} ${styles[`tipoChip--${escala.tipo}`] ?? ''}`}>
             Guarda {TIPO_LABEL[escala.tipo]}
           </span>
-          <span className="text-sm text-gray-500">
+          <span className={styles.dateText}>
             {formatarData(escala.data_inicio)}
             {escala.data_inicio !== escala.data_fim && ` – ${formatarData(escala.data_fim)}`}
           </span>
         </div>
 
-        {/* Pessoal */}
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
-          <div className="bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-            Pessoal escalado
-          </div>
-          <div className="divide-y divide-gray-100">
-            {cabo && (
-              <div className="px-4 py-2.5 flex gap-3 items-center">
-                <span className="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded font-medium">MONITOR</span>
-                <span className="text-sm font-medium text-gray-800">{cabo.nome_completo}</span>
-                <span className="text-xs text-gray-400 ml-auto">{cabo.ra}</span>
-              </div>
-            )}
-            {ats.map((at, i) => (
-              <div key={i} className="px-4 py-2.5 flex gap-3 items-center">
-                <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-medium">ATIRADOR</span>
-                <span className="text-sm text-gray-700">{at.nome_completo}</span>
-                <span className="text-xs text-gray-400 ml-auto">{at.ra}</span>
-              </div>
-            ))}
-            {!cabo && ats.length === 0 && (
-              <p className="px-4 py-3 text-sm text-gray-400 italic">Nenhum membro registrado.</p>
-            )}
-          </div>
+        <div className={styles.pessoalBox}>
+          <div className={styles.pessoalHeader}>Pessoal escalado</div>
+          {cabo && (
+            <MembroRow membro={cabo} badgeClass={styles['funcaoBadge--monitor']} badgeLabel="MONITOR" />
+          )}
+          {ats.map((at, i) => (
+            <MembroRow key={i} membro={at} badgeClass={styles['funcaoBadge--atirador']} badgeLabel="ATIRADOR" />
+          ))}
+          {!cabo && ats.length === 0 && (
+            <p className={styles.pessoalEmpty}>Nenhum membro registrado.</p>
+          )}
         </div>
 
         {escala.observacoes && (
-          <div className="text-sm text-gray-600 bg-gray-50 rounded-lg px-4 py-3">
-            <span className="font-medium">Obs: </span>{escala.observacoes}
+          <div className={styles.obsBox}>
+            <strong>Obs: </strong>{escala.observacoes}
           </div>
         )}
 
-        {/* Ações */}
-        <div className="flex flex-wrap gap-2 pt-1">
-          <button
-            onClick={() => gerarPdfEscala(escala)}
-            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700"
-          >
+        <div className={styles.detailActions}>
+          <button onClick={() => gerarPdfEscala(escala)} className={styles.btnPdf}>
             ⬇ PDF da Escala
           </button>
           {STATUS_NEXT[escala.status]?.map(({ acao, label }) => (
-            <button
-              key={acao}
-              disabled={mudandoStatus}
-              onClick={() => mudarStatus(acao)}
-              className="px-4 py-2 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-            >
+            <button key={acao} disabled={mudandoStatus} onClick={() => mudarStatus(acao)} className={styles.btnStatus}>
               {label}
             </button>
           ))}
@@ -107,16 +163,34 @@ function DetalheEscala({ escala, onFechar, onAtualizar }) {
   );
 }
 
-// ── Modo: criar nova escala ───────────────────────────────────────────────────
+// ── Criar nova escala ─────────────────────────────────────────────────────────
 
 const TIPOS = ['verde', 'preta', 'vermelha'];
 
-function CriarEscala({ dataInicial, onFechar, onCriada }) {
-  const hoje = new Date().toISOString().slice(0, 10);
+function diaDaSemana(iso) {
+  if (!iso) return null;
+  return new Date(`${iso}T12:00:00`).getDay(); // 0 = Dom, 6 = Sáb
+}
 
-  const [tipo,       setTipo]       = useState('preta');
-  const [dataInicio, setDataInicio] = useState(dataInicial ?? hoje);
-  const [dataFim,    setDataFim]    = useState(dataInicial ?? hoje);
+function tiposValidosPorData(iso) {
+  const d = diaDaSemana(iso);
+  if (d === null) return TIPOS;
+  if (d === 0 || d === 6) return ['vermelha'];
+  return ['verde', 'preta'];
+}
+
+function CriarEscala({ dataInicial, tiposJaUsados = [], onFechar, onCriada }) {
+  const hojeISO = new Date().toISOString().slice(0, 10);
+  const dataInicialEfetiva = dataInicial ?? hojeISO;
+
+  const [tipo, setTipo] = useState(() => {
+    const validos    = tiposValidosPorData(dataInicialEfetiva);
+    const disponivel = validos.find((t) => !tiposJaUsados.includes(t));
+    if (disponivel) return disponivel;
+    return validos.includes('preta') ? 'preta' : validos[0];
+  });
+  const [dataInicio, setDataInicio] = useState(dataInicialEfetiva);
+  const [dataFim,    setDataFim]    = useState(dataInicialEfetiva);
   const [obs,        setObs]        = useState('');
   const [membros,    setMembros]    = useState([]);
   const [todos,      setTodos]      = useState([]);
@@ -125,7 +199,6 @@ function CriarEscala({ dataInicial, onFechar, onCriada }) {
   const [salvando,   setSalvando]   = useState(false);
   const [erro,       setErro]       = useState(null);
 
-  // Quando tipo ou data_inicio mudam, busca sugestão
   useEffect(() => {
     if (!dataInicio) return;
     setCarregando(true);
@@ -134,30 +207,36 @@ function CriarEscala({ dataInicial, onFechar, onCriada }) {
       .then((res) => {
         setSugestao(res);
         setTodos(res.todosSoldados ?? []);
-        // Monta membros sugeridos
         const novos = [];
         if (res.cabo) novos.push({ soldado_id: res.cabo.soldado_id, funcao: 'cabo', nome: res.cabo.nome_completo, ra: res.cabo.ra });
         (res.atiradores ?? []).forEach((at) => novos.push({ soldado_id: at.soldado_id, funcao: 'atirador', nome: at.nome_completo, ra: at.ra }));
         setMembros(novos);
       })
       .catch((e) => {
-        const msg = e?.response?.data?.erro;
+        const msg = e?.response?.data?.error;
         setErro(typeof msg === 'string' ? msg : 'Erro ao buscar sugestão.');
         setMembros([]);
       })
       .finally(() => setCarregando(false));
   }, [tipo, dataInicio]);
 
-  // Ao mudar tipo, ajusta dataFim
   useEffect(() => {
-    if (tipo === 'verde' || tipo === 'preta') setDataFim(dataInicio);
-    else if (tipo === 'vermelha') {
-      // Fim = sábado + 1 (domingo)
+    if (tipo === 'verde' || tipo === 'preta') {
+      setDataFim(dataInicio);
+    } else if (tipo === 'vermelha') {
       const dt = new Date(`${dataInicio}T12:00:00`);
       dt.setDate(dt.getDate() + 1);
       setDataFim(dt.toISOString().slice(0, 10));
     }
   }, [tipo, dataInicio]);
+
+  const tiposValidos = tiposValidosPorData(dataInicio);
+
+  function mudarDataInicio(novaData) {
+    setDataInicio(novaData);
+    const validos = tiposValidosPorData(novaData);
+    if (!validos.includes(tipo)) setTipo(validos[0]);
+  }
 
   function trocarMembro(idx, novoSoldadoId) {
     const sol = todos.find((s) => s.soldado_id === novoSoldadoId);
@@ -169,8 +248,61 @@ function CriarEscala({ dataInicial, onFechar, onCriada }) {
     });
   }
 
-  const numAtiradores = tipo === 'verde' ? 1 : 3;
-  const temCabo = tipo !== 'verde';
+  function trocarFuncao(idx, novaFuncao) {
+    setMembros((prev) => {
+      const n        = [...prev];
+      const grad     = novaFuncao === 'cabo' ? 'cabo' : 'atirador';
+      const usados   = new Set(n.filter((_, j) => j !== idx).map((m) => m.soldado_id));
+      const solAtual = todos.find((s) => s.soldado_id === n[idx].soldado_id);
+      // Mantém o soldado atual se a graduação já bate; senão pega o primeiro livre
+      if (solAtual && solAtual.graduacao === grad) {
+        n[idx] = { ...n[idx], funcao: novaFuncao };
+      } else {
+        const livre = todos.find((s) => s.graduacao === grad && !usados.has(s.soldado_id));
+        n[idx] = livre
+          ? { soldado_id: livre.soldado_id, funcao: novaFuncao, nome: livre.nome_completo, ra: livre.ra }
+          : { ...n[idx], funcao: novaFuncao };
+      }
+      return n;
+    });
+  }
+
+  function removerMembro(idx) {
+    setMembros((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function adicionarMembro(funcao) {
+    const grad   = funcao === 'cabo' ? 'cabo' : 'atirador';
+    const usados = new Set(membros.map((m) => m.soldado_id));
+    const livre  = todos.find((s) => s.graduacao === grad && !usados.has(s.soldado_id));
+    if (!livre) return;
+    setMembros((prev) => [
+      ...prev,
+      { soldado_id: livre.soldado_id, funcao, nome: livre.nome_completo, ra: livre.ra },
+    ]);
+  }
+
+  const numAtiradoresAlvo = tipo === 'verde' ? 1 : 3;
+  const numCabosAlvo      = tipo === 'verde' ? 0 : 1;
+
+  const cabosCount      = membros.filter((m) => m.funcao === 'cabo').length;
+  const atiradoresCount = membros.filter((m) => m.funcao === 'atirador').length;
+
+  const escalaCompleta = cabosCount === numCabosAlvo && atiradoresCount === numAtiradoresAlvo;
+
+  const podeAddAtirador =
+    atiradoresCount < numAtiradoresAlvo &&
+    todos.some((s) => s.graduacao === 'atirador' && !membros.find((m) => m.soldado_id === s.soldado_id));
+
+  const podeAddCabo =
+    numCabosAlvo > 0 && cabosCount < numCabosAlvo &&
+    todos.some((s) => s.graduacao === 'cabo' && !membros.find((m) => m.soldado_id === s.soldado_id));
+
+  const TYPE_HINT = {
+    verde:    'Tarde (1 atirador — apenas dias úteis)',
+    preta:    '24h de um dia para o outro (1 cabo + 3 atiradores)',
+    vermelha: 'Fim de semana sábado–domingo (1 cabo + 3 atiradores)',
+  };
 
   async function salvar() {
     setErro(null);
@@ -183,7 +315,7 @@ function CriarEscala({ dataInicial, onFechar, onCriada }) {
       });
       onCriada(escala);
     } catch (e) {
-      const msg = e?.response?.data?.erro;
+      const msg = e?.response?.data?.error;
       setErro(typeof msg === 'string' ? msg : 'Erro ao criar escala.');
     } finally {
       setSalvando(false);
@@ -192,80 +324,79 @@ function CriarEscala({ dataInicial, onFechar, onCriada }) {
 
   return (
     <Modal aberto titulo="Nova Escala de Guarda" onFechar={onFechar} largura="max-w-xl">
-      <div className="space-y-4">
-        {/* Tipo */}
+      <div className={styles.createStack}>
         <div>
-          <label className="block text-xs font-semibold text-gray-600 mb-1">Tipo de Guarda</label>
-          <div className="flex gap-2">
+          <label className={styles.label}>Tipo de Guarda</label>
+          <div className={styles.typeBtns}>
             {TIPOS.map((t) => {
-              const cor = TIPO_COR[t];
+              const habilitado = tiposValidos.includes(t);
+              const motivoBloqueio = t === 'vermelha'
+                ? 'Guarda vermelha só pode ser escalada em sábados ou domingos.'
+                : 'Guarda verde e preta só podem ser escaladas em dias úteis (seg–sex).';
               return (
                 <button
                   key={t}
                   type="button"
+                  disabled={!habilitado}
+                  title={!habilitado ? motivoBloqueio : ''}
                   onClick={() => setTipo(t)}
-                  className={`flex-1 py-2 text-sm font-semibold rounded-lg border-2 transition-colors ${
-                    tipo === t ? `${cor.bg} ${cor.text} ${cor.border}` : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                  }`}
+                  className={`${styles.typeBtn} ${tipo === t ? styles[`typeBtn--${t}-active`] : ''}`}
                 >
                   {TIPO_LABEL[t]}
                 </button>
               );
             })}
           </div>
-          <p className="text-xs text-gray-400 mt-1">
-            {tipo === 'verde'    && 'Tarde (1 atirador — apenas dias úteis)'}
-            {tipo === 'preta'    && '24h de um dia para o outro (1 cabo + 3 atiradores)'}
-            {tipo === 'vermelha' && 'Fim de semana sábado–domingo (1 cabo + 3 atiradores)'}
-          </p>
+          <p className={styles.typeHint}>{TYPE_HINT[tipo]}</p>
         </div>
 
-        {/* Datas */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className={styles.datesGrid}>
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Data de início</label>
-            <input type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-              value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} />
+            <label className={styles.label}>Data de início</label>
+            <input type="date" className={styles.input}
+              value={dataInicio} onChange={(e) => mudarDataInicio(e.target.value)} />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Data de fim</label>
-            <input type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-50"
+            <label className={styles.label}>Data de fim</label>
+            <input type="date" className={styles.input}
               value={dataFim} onChange={(e) => setDataFim(e.target.value)}
               disabled={tipo === 'verde'} />
           </div>
         </div>
 
-        {/* Membros sugeridos */}
         {carregando && (
-          <p className="text-xs text-blue-600 animate-pulse py-2">Buscando sugestão da fila…</p>
+          <p className={styles.loadingCtx}>Buscando sugestão da fila…</p>
         )}
 
         {sugestao?.bloqueado && (
-          <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700 font-medium">
-            ⚠ Esta data está bloqueada pelo comandante.
-          </div>
+          <div className={styles.alertBlocked}>⚠ Esta data está bloqueada pelo comandante.</div>
         )}
 
-        {membros.length > 0 && !carregando && (
+        {!carregando && (
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">
-              Pessoal escalado
-            </label>
-            <p className="text-xs text-gray-400 mb-2">
-              Sugestão automática da fila de rotação. Use os seletores para substituir qualquer membro.
+            <label className={styles.membrosLabel}>Pessoal escalado</label>
+            <p className={styles.membrosHint}>
+              Use o seletor de função pra alternar entre Atirador e Cabo. Soldados já escalados nesta guarda não aparecem nos outros seletores.
             </p>
-            <div className="space-y-2">
+            <div className={styles.membrosStack}>
               {membros.map((m, i) => {
-                const pool = todos.filter((s) => s.funcao === m.funcao || (m.funcao === 'cabo' && s.graduacao === 'cabo') || (m.funcao === 'atirador' && s.graduacao === 'atirador'));
+                const usadosOutros = new Set(membros.filter((_, j) => j !== i).map((x) => x.soldado_id));
+                const pool = todos.filter((s) =>
+                  (m.funcao === 'cabo' ? s.graduacao === 'cabo' : s.graduacao === 'atirador')
+                  && !usadosOutros.has(s.soldado_id)
+                );
                 return (
-                  <div key={i} className="flex items-center gap-2">
-                    <span className={`text-xs px-2 py-1 rounded font-medium w-20 text-center ${
-                      m.funcao === 'cabo' ? 'bg-gray-200 text-gray-700' : 'bg-blue-50 text-blue-700'
-                    }`}>
-                      {FUNC_LABEL[m.funcao]}
-                    </span>
+                  <div key={i} className={styles.membroRow}>
                     <select
-                      className="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      className={`${styles.membroFuncaoSelect} ${styles[`membroFuncaoSelect--${m.funcao}`] ?? ''}`}
+                      value={m.funcao}
+                      onChange={(e) => trocarFuncao(i, e.target.value)}
+                    >
+                      <option value="atirador">Atirador</option>
+                      {numCabosAlvo > 0 && <option value="cabo">Cabo</option>}
+                    </select>
+                    <select
+                      className={styles.membroSelect}
                       value={m.soldado_id}
                       onChange={(e) => trocarMembro(i, Number(e.target.value))}
                     >
@@ -278,43 +409,71 @@ function CriarEscala({ dataInicial, onFechar, onCriada }) {
                           </option>
                         ))}
                     </select>
+                    <button
+                      type="button"
+                      onClick={() => removerMembro(i)}
+                      className={styles.btnRemove}
+                      title="Remover"
+                    >
+                      ×
+                    </button>
                   </div>
                 );
               })}
             </div>
 
-            {/* Indica membros faltantes */}
-            {temCabo && !membros.find((m) => m.funcao === 'cabo') && (
-              <p className="text-xs text-red-600 mt-1">Nenhum cabo disponível na fila.</p>
-            )}
-            {membros.filter((m) => m.funcao === 'atirador').length < numAtiradores && (
-              <p className="text-xs text-yellow-600 mt-1">
-                Apenas {membros.filter((m) => m.funcao === 'atirador').length} de {numAtiradores} atiradores disponíveis.
-              </p>
-            )}
+            <div className={styles.addBtnsRow}>
+              {numCabosAlvo > 0 && (
+                <button
+                  type="button"
+                  onClick={() => adicionarMembro('cabo')}
+                  disabled={!podeAddCabo}
+                  className={styles.btnAddAtirador}
+                  title={cabosCount >= numCabosAlvo ? 'Já há 1 cabo escalado.' : (!podeAddCabo ? 'Não há cabos disponíveis.' : '')}
+                >
+                  + Adicionar cabo
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => adicionarMembro('atirador')}
+                disabled={!podeAddAtirador}
+                className={styles.btnAddAtirador}
+                title={
+                  atiradoresCount >= numAtiradoresAlvo
+                    ? `Limite de ${numAtiradoresAlvo} atiradores atingido.`
+                    : (!podeAddAtirador ? 'Não há mais atiradores disponíveis.' : '')
+                }
+              >
+                + Adicionar atirador
+              </button>
+            </div>
+
+            <p className={`${styles.contagem} ${escalaCompleta ? styles['contagem--ok'] : styles['contagem--falta']}`}>
+              {numCabosAlvo > 0 && `${cabosCount}/${numCabosAlvo} cabo · `}
+              {atiradoresCount}/{numAtiradoresAlvo} atiradores
+              {escalaCompleta ? ' ✓' : ''}
+            </p>
           </div>
         )}
 
-        {/* Observações */}
         <div>
-          <label className="block text-xs font-semibold text-gray-600 mb-1">Observações (opcional)</label>
-          <textarea rows={2} maxLength={500}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-green-500"
+          <label className={styles.label}>Observações (opcional)</label>
+          <textarea rows={2} maxLength={500} className={styles.textarea}
             value={obs} onChange={(e) => setObs(e.target.value)}
             placeholder="Punições, trocas, justificativas…" />
         </div>
 
-        {erro && <p className="text-sm text-red-600">{erro}</p>}
+        {erro && <p className={styles.error}>{erro}</p>}
 
-        <div className="flex justify-end gap-2 pt-1">
-          <button type="button" onClick={onFechar} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">
-            Cancelar
-          </button>
+        <div className={styles.createFooter}>
+          <button type="button" onClick={onFechar} className={styles.cancelBtn}>Cancelar</button>
           <button
             type="button"
-            disabled={salvando || carregando || membros.length === 0}
+            disabled={salvando || carregando || !escalaCompleta}
             onClick={salvar}
-            className="px-5 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"
+            className={styles.confirmBtn}
+            title={!escalaCompleta ? `É necessário ${numCabosAlvo > 0 ? '1 cabo + ' : ''}${numAtiradoresAlvo} atiradores.` : ''}
           >
             {salvando ? 'Salvando…' : 'Confirmar Escala'}
           </button>
@@ -326,25 +485,20 @@ function CriarEscala({ dataInicial, onFechar, onCriada }) {
 
 // ── Export ────────────────────────────────────────────────────────────────────
 
-export default function EscalaModal({ escala, dataInicial, onFechar, onSalvo }) {
+export default function EscalaModal({ escala, dataInicial, tiposJaUsados, onFechar, onSalvo }) {
   function handleAtualizar(atualizado) {
     onSalvo(atualizado);
     onFechar();
   }
 
   if (escala) {
-    return (
-      <DetalheEscala
-        escala={escala}
-        onFechar={onFechar}
-        onAtualizar={handleAtualizar}
-      />
-    );
+    return <DetalheEscala escala={escala} onFechar={onFechar} onAtualizar={handleAtualizar} />;
   }
 
   return (
     <CriarEscala
       dataInicial={dataInicial}
+      tiposJaUsados={tiposJaUsados}
       onFechar={onFechar}
       onCriada={(nova) => { onSalvo(nova); onFechar(); }}
     />

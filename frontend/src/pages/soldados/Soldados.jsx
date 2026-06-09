@@ -4,6 +4,7 @@ import { Badge } from '../../components/ui/Badge';
 import { useSoldados } from '../../hooks/useSoldados';
 import { SoldadoFormModal } from './SoldadoFormModal';
 import { ImportarModal } from './ImportarModal';
+import styles from './Soldados.module.scss';
 
 const STATUS_OPTS = [
   { value: '', label: 'Todos os status' },
@@ -18,12 +19,40 @@ const GRAD_OPTS = [
   { value: 'cabo', label: 'Cabo' },
 ];
 
+// Cores dos badges de contagem de guardas por tipo.
+const GUARDA_BADGE_STYLE = {
+  verde:    { background: '#dcfce7', color: '#166534' },
+  preta:    { background: '#374151', color: '#ffffff' },
+  vermelha: { background: '#fee2e2', color: '#991b1b' },
+};
+
+// Badge numérico centralizado. Valor 0/ausente vira "—" para não poluir.
+function GuardaCount({ valor, tipo }) {
+  if (!valor) return <span style={{ color: '#9ca3af' }}>—</span>;
+  return (
+    <span
+      style={{
+        ...GUARDA_BADGE_STYLE[tipo],
+        display: 'inline-block',
+        minWidth: 24,
+        padding: '2px 8px',
+        borderRadius: 9999,
+        fontSize: 12,
+        fontWeight: 600,
+        textAlign: 'center',
+      }}
+    >
+      {valor}
+    </span>
+  );
+}
+
 export default function Soldados() {
   const { soldados, carregando, erro, carregar } = useSoldados();
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('');
   const [filtroGrad, setFiltroGrad] = useState('');
-  const [modalForm, setModalForm] = useState(null); // null | 'novo' | soldadoObj
+  const [modalForm, setModalForm] = useState(null);
   const [modalImportar, setModalImportar] = useState(false);
 
   useEffect(() => { carregar(); }, [carregar]);
@@ -49,95 +78,94 @@ export default function Soldados() {
 
   return (
     <Layout>
-      {/* Cabeçalho */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <h1 className="text-xl font-bold text-gray-800">Soldados</h1>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setModalImportar(true)}
-            className="px-3 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-          >
+      <div className={styles.pageHeader}>
+        <h1 className={styles.pageTitle}>Soldados</h1>
+        <div className={styles.headerActions}>
+          <button onClick={() => setModalImportar(true)} className={styles.btnImport}>
             Importar planilha
           </button>
-          <button
-            onClick={() => setModalForm('novo')}
-            className="px-4 py-2 text-sm font-medium bg-green-700 hover:bg-green-800 text-white rounded-lg transition-colors"
-          >
+          <button onClick={() => setModalForm('novo')} className={styles.btnNew}>
             + Novo soldado
           </button>
         </div>
       </div>
 
-      {/* Filtros */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 px-4 py-3 mb-4 flex flex-wrap gap-3">
+      <div className={styles.filterBar}>
         <input
           type="search"
           placeholder="Buscar por nome ou RA..."
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
-          className="flex-1 min-w-48 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+          className={styles.searchInput}
         />
         <select
           value={filtroStatus}
           onChange={(e) => setFiltroStatus(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+          className={styles.select}
         >
           {STATUS_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         <select
           value={filtroGrad}
           onChange={(e) => setFiltroGrad(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+          className={styles.select}
         >
           {GRAD_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         {(busca || filtroStatus || filtroGrad) && (
           <button
             onClick={() => { setBusca(''); setFiltroStatus(''); setFiltroGrad(''); }}
-            className="text-sm text-gray-500 hover:text-gray-700"
+            className={styles.clearBtn}
           >
             Limpar
           </button>
         )}
       </div>
 
-      {/* Tabela */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className={styles.tableWrap}>
         {carregando ? (
-          <div className="py-16 text-center text-gray-400 text-sm">Carregando...</div>
+          <div className={styles.tableEmpty}>Carregando...</div>
         ) : erro ? (
-          <div className="py-16 text-center text-red-500 text-sm">{erro}</div>
+          <div className={styles.tableError}>{erro}</div>
         ) : filtrados.length === 0 ? (
-          <div className="py-16 text-center text-gray-400 text-sm">
+          <div className={styles.tableEmpty}>
             {soldados.length === 0 ? 'Nenhum soldado cadastrado.' : 'Nenhum resultado para os filtros selecionados.'}
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <table className={styles.table}>
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                <th className="px-4 py-3">RA</th>
-                <th className="px-4 py-3">Nome</th>
-                <th className="px-4 py-3 hidden md:table-cell">Pelotão</th>
-                <th className="px-4 py-3 hidden md:table-cell">Turma</th>
-                <th className="px-4 py-3">Graduação</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Ações</th>
+              <tr>
+                <th>RA</th>
+                <th>Nome</th>
+                <th className={styles.hideMd}>Pelotão</th>
+                <th className={styles.hideMd}>Turma</th>
+                <th>Graduação</th>
+                <th>Status</th>
+                <th style={{ textAlign: 'center' }}>🟢 Verde</th>
+                <th style={{ textAlign: 'center' }}>⚫ Preta</th>
+                <th style={{ textAlign: 'center' }}>🔴 Vermelha</th>
+                <th style={{ textAlign: 'right' }}>Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody>
               {filtrados.map((s) => (
-                <tr key={s.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 font-mono text-gray-600">{s.ra}</td>
-                  <td className="px-4 py-3 font-medium text-gray-800">{s.nome_completo}</td>
-                  <td className="px-4 py-3 text-gray-500 hidden md:table-cell">{s.pelotao || '—'}</td>
-                  <td className="px-4 py-3 text-gray-500 hidden md:table-cell">{s.turma || '—'}</td>
-                  <td className="px-4 py-3"><Badge value={s.graduacao} /></td>
-                  <td className="px-4 py-3"><Badge value={s.status} /></td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => setModalForm(s)}
-                      className="text-sm text-green-700 hover:text-green-900 font-medium"
-                    >
+                <tr key={s.id}>
+                  <td className={styles.raCell}>{s.ra}</td>
+                  <td className={styles.nameCell}>{s.nome_completo}</td>
+                  <td className={`${styles.muteCell} ${styles.hideMd}`}>{s.pelotao || '—'}</td>
+                  <td className={`${styles.muteCell} ${styles.hideMd}`}>{s.turma || '—'}</td>
+                  <td><Badge value={s.graduacao} /></td>
+                  <td><Badge value={s.status} /></td>
+                  {/* Cabos nunca fazem guarda verde → traço fixo na coluna verde */}
+                  <td style={{ textAlign: 'center' }}>
+                    {s.graduacao === 'cabo'
+                      ? <span style={{ color: '#9ca3af' }}>—</span>
+                      : <GuardaCount valor={s.total_verde} tipo="verde" />}
+                  </td>
+                  <td style={{ textAlign: 'center' }}><GuardaCount valor={s.total_preta} tipo="preta" /></td>
+                  <td style={{ textAlign: 'center' }}><GuardaCount valor={s.total_vermelha} tipo="vermelha" /></td>
+                  <td style={{ textAlign: 'right' }}>
+                    <button onClick={() => setModalForm(s)} className={styles.editBtn}>
                       Editar
                     </button>
                   </td>
@@ -147,9 +175,8 @@ export default function Soldados() {
           </table>
         )}
 
-        {/* Rodapé com contagem */}
         {!carregando && !erro && filtrados.length > 0 && (
-          <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-400">
+          <div className={styles.tableFooter}>
             {filtrados.length} de {soldados.length} soldado{soldados.length !== 1 ? 's' : ''}
             {filtrados.filter(s => s.status === 'ativo').length !== filtrados.length && (
               <span> · {filtrados.filter(s => s.status === 'ativo').length} ativo{filtrados.filter(s => s.status === 'ativo').length !== 1 ? 's' : ''}</span>
@@ -158,7 +185,6 @@ export default function Soldados() {
         )}
       </div>
 
-      {/* Modais */}
       {modalForm && (
         <SoldadoFormModal
           key={modalForm === 'novo' ? 'novo' : modalForm.id}

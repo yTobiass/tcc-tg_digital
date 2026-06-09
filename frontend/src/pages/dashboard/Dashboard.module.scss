@@ -1,0 +1,153 @@
+@use 'mixins' as m;
+
+.pageTitle {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  color: var(--clr-gray-800);
+  margin-bottom: 24px;
+}
+
+// ── Summary cards grid ────────────────────────────────────────────────────────
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+
+  @include m.lg { grid-template-columns: repeat(4, 1fr); }
+}
+
+.summaryCard {
+  @include m.card;
+  padding: 20px;
+}
+
+.summaryLabel {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--clr-gray-400);
+  margin-bottom: 8px;
+}
+
+.summaryValue {
+  font-size: var(--fs-3xl);
+  font-weight: 700;
+  color: var(--clr-gray-800);
+  line-height: 1;
+
+  &--green  { color: var(--clr-primary-700); }
+  &--yellow { color: var(--clr-yellow-600); }
+  &--red    { color: var(--clr-red-600); }
+  &--muted  { color: var(--clr-gray-400); }
+}
+
+.summarySub {
+  font-size: var(--fs-sm);
+  color: var(--clr-gray-500);
+  margin-top: 4px;
+}
+
+.summaryFooter {
+  font-size: var(--fs-xs);
+  color: var(--clr-gray-400);
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--clr-gray-100);
+}
+
+// ── Charts grid ───────────────────────────────────────────────────────────────
+.chartsGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+
+  @include m.lg { grid-template-columns: repeat(2, 1fr); }
+}
+
+.chartCard {
+  @include m.card;
+  padding: 20px;
+}
+
+.chartTitle {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--clr-gray-700);
+}
+
+.chartSubtitle {
+  font-size: var(--fs-xs);
+  color: var(--clr-gray-400);
+  margin-top: 2px;
+}
+
+.chartHeader { margin-bottom: 16px; }
+
+.emptyChart {
+  height: 176px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--clr-gray-300);
+  font-size: var(--fs-sm);
+}
+
+// ── Custom tooltip ────────────────────────────────────────────────────────────
+.tooltip {
+  background: #fff;
+  border: 1px solid var(--clr-gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 8px 12px;
+  font-size: var(--fs-xs);
+}
+
+.tooltipTitle {
+  font-weight: 600;
+  color: var(--clr-gray-700);
+  margin-bottom: 2px;
+}
+
+.tooltipGreen  { color: var(--clr-primary-700); }
+.tooltipMuted  { color: var(--clr-gray-500); }
+
+// ── Próximas guardas ──────────────────────────────────────────────────────────
+.guardaList { list-style: none; }
+
+.guardaItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.guardaChip {
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+
+  &--verde    { background: var(--clr-primary-100); color: #166534; }
+  &--preta    { background: var(--clr-gray-200);    color: var(--clr-gray-700); }
+  &--vermelha { background: var(--clr-red-100);     color: var(--clr-red-800); }
+}
+
+.guardaDate {
+  font-size: var(--fs-sm);
+  color: var(--clr-gray-600);
+}
+
+.guardasEmpty {
+  font-size: var(--fs-sm);
+  color: var(--clr-gray-400);
+  text-align: center;
+  padding: 16px 0;
+}
+
+// ── Skeleton ──────────────────────────────────────────────────────────────────
+.skeleton { @include m.skeleton; }
+.skeletonH32 { @include m.skeleton; height: 128px; }
+.skeletonH60 { @include m.skeleton; height: 240px; }

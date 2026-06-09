@@ -1,9 +1,9 @@
-const model = require('../models/relatorioModel');
+﻿const model = require('../models/relatorioModel');
 
 function relatorioPresenca(req, res) {
   const { data_inicio, data_fim, turma, pelotao, soldado_id } = req.query;
   if (!data_inicio || !data_fim) {
-    return res.status(400).json({ erro: 'data_inicio e data_fim são obrigatórios.' });
+    return res.status(400).json({ error: 'data_inicio e data_fim são obrigatórios.' });
   }
   const dados = model.presenca({
     dataInicio: data_inicio,

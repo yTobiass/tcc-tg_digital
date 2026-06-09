@@ -1,0 +1,62 @@
+@use 'mixins' as m;
+
+.stack { display: flex; flex-direction: column; gap: 16px; }
+
+.label {
+  display: block;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--clr-gray-600);
+  margin-bottom: 4px;
+}
+
+.hint {
+  font-size: var(--fs-xs);
+  color: var(--clr-gray-400);
+  margin-top: 2px;
+}
+
+.input  { @include m.input; }
+.select { @include m.input; }
+
+.roleBtns { display: flex; gap: 8px; }
+
+.roleBtn {
+  @include m.btn-base;
+  flex: 1;
+  padding: 8px;
+  border: 2px solid var(--clr-gray-200);
+  background: #fff;
+  color: var(--clr-gray-500);
+  font-weight: 600;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast), color var(--transition-fast);
+
+  &:hover { border-color: var(--clr-gray-300); }
+  &--active {
+    border-color: var(--clr-primary-500);
+    background: var(--clr-primary-50);
+    color: #166534;
+  }
+}
+
+.error { font-size: var(--fs-sm); color: var(--clr-red-600); }
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.cancelBtn {
+  padding: 8px 16px;
+  font-size: var(--fs-sm);
+  color: var(--clr-gray-600);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+  &:hover { color: var(--clr-gray-800); }
+}
+
+.saveBtn { @include m.btn-primary; }

@@ -1,0 +1,56 @@
+@use 'mixins' as m;
+
+.tooltip {
+  background: #fff;
+  border: 1px solid var(--clr-gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 8px 12px;
+  font-size: var(--fs-xs);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.tooltipTitle { font-weight: 600; color: var(--clr-gray-700); }
+.tooltipBody  { color: var(--clr-gray-600); }
+.tooltipMuted { color: var(--clr-gray-500); }
+
+.loading { @include m.empty-state; height: 192px; }
+.empty   { @include m.empty-state; padding: 32px 20px; }
+
+.historyWrap {
+  margin-top: 16px;
+  overflow-x: auto;
+}
+
+.table {
+  @include m.table-base;
+  font-size: var(--fs-xs);
+  color: var(--clr-gray-600);
+
+  thead tr {
+    border-bottom: 1px solid var(--clr-gray-100);
+    th {
+      padding-bottom: 8px;
+      padding-right: 16px;
+      text-align: left;
+      color: var(--clr-gray-400);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--clr-gray-50);
+    transition: background-color var(--transition-fast);
+    &:hover { background: var(--clr-gray-50); }
+
+    td { padding: 8px 16px 8px 0; }
+  }
+}
+
+.boldNote { font-weight: 600; color: var(--clr-gray-800); }
+
+.conceitoBadge {
+  @include m.badge-base;
+}

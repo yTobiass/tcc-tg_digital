@@ -1,4 +1,4 @@
-const { z }  = require('zod');
+﻿const { z }  = require('zod');
 const model  = require('../models/usuarioModel');
 
 const schemaCriar = z.object({
@@ -23,22 +23,22 @@ function listar(_req, res) {
 
 function buscar(req, res) {
   const u = model.buscarPorId(Number(req.params.id));
-  if (!u) return res.status(404).json({ erro: 'Usuário não encontrado.' });
+  if (!u) return res.status(404).json({ error: 'Usuário não encontrado.' });
   res.json(u);
 }
 
 function criar(req, res) {
   const parse = schemaCriar.safeParse(req.body);
-  if (!parse.success) return res.status(400).json({ erro: parse.error.issues[0].message });
+  if (!parse.success) return res.status(400).json({ error: parse.error.issues[0].message });
 
   const dados = parse.data;
   if (dados.role === 'soldado' && !dados.soldado_id) {
-    return res.status(400).json({ erro: 'soldado_id é obrigatório para usuários com role soldado.' });
+    return res.status(400).json({ error: 'soldado_id é obrigatório para usuários com role soldado.' });
   }
   if (dados.role !== 'soldado') dados.soldado_id = null;
 
   if (model.loginExiste(dados.login)) {
-    return res.status(409).json({ erro: 'Este login já está em uso.' });
+    return res.status(409).json({ error: 'Este login já está em uso.' });
   }
 
   res.status(201).json(model.criar(dados));
@@ -47,27 +47,27 @@ function criar(req, res) {
 function atualizar(req, res) {
   const id = Number(req.params.id);
   const alvo = model.buscarPorId(id);
-  if (!alvo) return res.status(404).json({ erro: 'Usuário não encontrado.' });
+  if (!alvo) return res.status(404).json({ error: 'Usuário não encontrado.' });
 
   const parse = schemaAtualizar.safeParse(req.body);
-  if (!parse.success) return res.status(400).json({ erro: parse.error.issues[0].message });
+  if (!parse.success) return res.status(400).json({ error: parse.error.issues[0].message });
 
   const dados = parse.data;
 
   // Impede rebaixar o próprio role de comandante se for o último
   if (alvo.role === 'comandante' && dados.role !== 'comandante') {
     if (model.contarComandantesAtivos() <= 1) {
-      return res.status(400).json({ erro: 'Não é possível alterar o role do único comandante ativo.' });
+      return res.status(400).json({ error: 'Não é possível alterar o role do único comandante ativo.' });
     }
   }
 
   if (dados.role === 'soldado' && !dados.soldado_id) {
-    return res.status(400).json({ erro: 'soldado_id é obrigatório para usuários com role soldado.' });
+    return res.status(400).json({ error: 'soldado_id é obrigatório para usuários com role soldado.' });
   }
   if (dados.role !== 'soldado') dados.soldado_id = null;
 
   if (model.loginExiste(dados.login, id)) {
-    return res.status(409).json({ erro: 'Este login já está em uso.' });
+    return res.status(409).json({ error: 'Este login já está em uso.' });
   }
 
   res.json(model.atualizar(id, dados));
@@ -77,15 +77,15 @@ function remover(req, res) {
   const id = Number(req.params.id);
 
   if (id === req.user.id) {
-    return res.status(400).json({ erro: 'Você não pode desativar sua própria conta.' });
+    return res.status(400).json({ error: 'Você não pode desativar sua própria conta.' });
   }
 
   const alvo = model.buscarPorId(id);
-  if (!alvo) return res.status(404).json({ erro: 'Usuário não encontrado.' });
-  if (!alvo.ativo) return res.status(400).json({ erro: 'Usuário já está inativo.' });
+  if (!alvo) return res.status(404).json({ error: 'Usuário não encontrado.' });
+  if (!alvo.ativo) return res.status(400).json({ error: 'Usuário já está inativo.' });
 
   if (alvo.role === 'comandante' && model.contarComandantesAtivos() <= 1) {
-    return res.status(400).json({ erro: 'Não é possível desativar o único comandante ativo.' });
+    return res.status(400).json({ error: 'Não é possível desativar o único comandante ativo.' });
   }
 
   model.desativar(id);
@@ -95,8 +95,8 @@ function remover(req, res) {
 function reativar(req, res) {
   const id = Number(req.params.id);
   const alvo = model.buscarPorId(id);
-  if (!alvo) return res.status(404).json({ erro: 'Usuário não encontrado.' });
-  if (alvo.ativo) return res.status(400).json({ erro: 'Usuário já está ativo.' });
+  if (!alvo) return res.status(404).json({ error: 'Usuário não encontrado.' });
+  if (alvo.ativo) return res.status(400).json({ error: 'Usuário já está ativo.' });
 
   model.reativar(id);
   res.json(model.buscarPorId(id));

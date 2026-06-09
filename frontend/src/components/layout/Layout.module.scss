@@ -1,0 +1,186 @@
+@use 'mixins' as m;
+
+.root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #070d07;
+  // Hex grid tile: pointy-top hexagons, R=20 → tile 35×60 px
+  background-image: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="35" height="60"%3E%3Cpath d="M17.5,-5 L34.82,5 L34.82,25 L17.5,35 L0.18,25 L0.18,5 Z" fill="none" stroke="rgba(0,224,65,0.045)" stroke-width="1"/%3E%3Cpath d="M0,25 L17.32,35 L17.32,55 L0,65 L-17.32,55 L-17.32,35 Z" fill="none" stroke="rgba(0,224,65,0.045)" stroke-width="1"/%3E%3Cpath d="M35,25 L52.32,35 L52.32,55 L35,65 L17.68,55 L17.68,35 Z" fill="none" stroke="rgba(0,224,65,0.045)" stroke-width="1"/%3E%3C/svg%3E');
+  background-size: 35px 60px;
+  background-attachment: fixed;
+}
+
+// ── Top nav ───────────────────────────────────────────────────────────────────
+.nav {
+  background: var(--clr-primary-800);
+  color: #fff;
+  box-shadow: var(--shadow-md);
+  flex-shrink: 0;
+}
+
+.navInner {
+  max-width: var(--max-content-width);
+  margin: 0 auto;
+  padding: 0 16px;
+  height: var(--nav-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logo {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+  margin-right: 16px;
+  color: #fff;
+}
+
+.desktopLinks {
+  display: none;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  overflow-x: auto;
+
+  @include m.sm { display: flex; }
+}
+
+.navLink {
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  color: rgba(255, 255, 255, 0.75);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+
+  &:hover { color: #fff; background: var(--clr-primary-700); }
+}
+
+.navLinkActive {
+  background: var(--clr-primary-700);
+  color: #fff;
+}
+
+.navRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: 12px;
+}
+
+.userName {
+  font-size: var(--fs-sm);
+  color: rgba(255, 255, 255, 0.75);
+  display: none;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  @include m.md { display: block; }
+}
+
+.logoutBtn {
+  font-size: var(--fs-sm);
+  color: rgba(255, 255, 255, 0.75);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: none;
+  transition: color var(--transition-fast);
+
+  &:hover { color: #fff; }
+
+  @include m.sm { display: block; }
+}
+
+.mobilePageTitle {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.75);
+  flex: 1;
+  text-align: center;
+
+  @include m.sm { display: none; }
+}
+
+.hamburger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 4px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+
+  &:hover { color: #fff; background: var(--clr-primary-700); }
+
+  @include m.sm { display: none; }
+}
+
+// ── Mobile dropdown ───────────────────────────────────────────────────────────
+.mobileMenu {
+  background: var(--clr-primary-900);
+  border-top: 1px solid var(--clr-primary-700);
+  padding: 8px 12px;
+
+  @include m.sm { display: none; }
+}
+
+.mobileLink {
+  display: block;
+  padding: 10px 12px;
+  border-radius: var(--radius-lg);
+  font-size: var(--fs-sm);
+  color: rgba(255, 255, 255, 0.75);
+  text-decoration: none;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+
+  &:hover { color: #fff; background: var(--clr-primary-700); }
+}
+
+.mobileLinkActive {
+  background: var(--clr-primary-700);
+  color: #fff;
+}
+
+.mobileDivider {
+  border-top: 1px solid var(--clr-primary-700);
+  padding-top: 8px;
+  margin-top: 8px;
+}
+
+.mobileUser {
+  padding: 4px 12px;
+  font-size: var(--fs-xs);
+  color: rgba(255, 255, 255, 0.5);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// ── Main content ──────────────────────────────────────────────────────────────
+.main {
+  flex: 1;
+  max-width: var(--max-content-width);
+  width: 100%;
+  margin: 0 auto;
+  padding: 24px 16px;
+}

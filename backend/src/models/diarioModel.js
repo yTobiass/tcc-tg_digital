@@ -1,15 +1,22 @@
 const { getDb } = require('../database/db');
 
 function nomeGuerra(nomeCompleto = '') {
-  const partes = nomeCompleto.trim().split(/\s+/);
+  const nome = (nomeCompleto || '').trim();
+  if (!nome) return '';
+  // Formato "SOBRENOME, Nome" → nome de guerra é o sobrenome (antes da vírgula).
+  if (nome.includes(',')) return nome.split(',')[0].trim().toUpperCase();
+  const partes = nome.split(/\s+/);
   return partes[partes.length - 1].toUpperCase();
 }
 
 function listar({ limit = 50, offset = 0 } = {}) {
   return getDb().prepare(`
-    SELECT id, data_servico, data_para, parada_diaria_status, pdf_gerado, created_at
-    FROM diario_rotina
-    ORDER BY data_servico DESC
+    SELECT dr.id, dr.data_servico, dr.data_para, dr.parada_diaria_status,
+           dr.pdf_gerado, dr.created_at,
+           dr.registrado_por, u.nome AS registrado_por_nome
+    FROM diario_rotina dr
+    LEFT JOIN usuarios u ON u.id = dr.registrado_por
+    ORDER BY dr.data_servico DESC
     LIMIT ? OFFSET ?
   `).all(limit, offset);
 }
@@ -18,13 +25,19 @@ function total() {
   return getDb().prepare('SELECT COUNT(*) AS c FROM diario_rotina').get().c;
 }
 
+const SELECT_COM_REGISTRADOR = `
+  SELECT dr.*, u.nome AS registrado_por_nome
+  FROM diario_rotina dr
+  LEFT JOIN usuarios u ON u.id = dr.registrado_por
+`;
+
 function buscarPorData(data) {
-  const d = getDb().prepare('SELECT * FROM diario_rotina WHERE data_servico = ?').get(data);
+  const d = getDb().prepare(`${SELECT_COM_REGISTRADOR} WHERE dr.data_servico = ?`).get(data);
   return d ? parsearJson(d) : null;
 }
 
 function buscarPorId(id) {
-  const d = getDb().prepare('SELECT * FROM diario_rotina WHERE id = ?').get(id);
+  const d = getDb().prepare(`${SELECT_COM_REGISTRADOR} WHERE dr.id = ?`).get(id);
   return d ? parsearJson(d) : null;
 }
 
@@ -85,7 +98,7 @@ function criar(dados, registradoPor) {
   return buscarPorId(r.lastInsertRowid);
 }
 
-function atualizar(id, dados) {
+function atualizar(id, dados, registradoPor) {
   const db = getDb();
   const {
     parada_diaria_status, parada_diaria_descricao,
@@ -107,7 +120,8 @@ function atualizar(id, dados) {
       instalacoes_status = ?, instalacoes_descricao = ?,
       iluminacao_status = ?, iluminacao_descricao = ?,
       ocorrencias_texto = ?,
-      passagem_monitor_numero = ?, passagem_monitor_nome = ?
+      passagem_monitor_numero = ?, passagem_monitor_nome = ?,
+      registrado_por = COALESCE(?, registrado_por)
     WHERE id = ? AND pdf_gerado = 0
   `).run(
     parada_diaria_status, parada_diaria_descricao ?? null,
@@ -120,6 +134,7 @@ function atualizar(id, dados) {
     iluminacao_status, iluminacao_descricao ?? null,
     ocorrencias_texto ?? null,
     passagem_monitor_numero ?? null, passagem_monitor_nome ?? null,
+    registradoPor ?? null,
     id,
   );
   return buscarPorId(id);

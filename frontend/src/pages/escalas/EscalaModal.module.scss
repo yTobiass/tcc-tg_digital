@@ -1,0 +1,252 @@
+@use 'mixins' as m;
+
+// ── Detalhe da escala ─────────────────────────────────────────────────────────
+.detailStack { display: flex; flex-direction: column; gap: 16px; }
+
+.chipRow { display: flex; align-items: center; gap: 12px; }
+
+.tipoChip {
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+
+  &--verde    { background: var(--clr-primary-100); color: #166534; }
+  &--preta    { background: var(--clr-gray-200);    color: var(--clr-gray-800); }
+  &--vermelha { background: var(--clr-red-100);     color: var(--clr-red-800); }
+}
+
+.dateText { font-size: var(--fs-sm); color: var(--clr-gray-500); }
+
+.pessoalBox {
+  border: 1px solid var(--clr-gray-200);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.pessoalHeader {
+  background: var(--clr-gray-50);
+  padding: 8px 16px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--clr-gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pessoalRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--clr-gray-100);
+}
+
+.funcaoBadge {
+  @include m.badge-base;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  &--monitor  { background: var(--clr-gray-200); color: var(--clr-gray-700); }
+  &--atirador { background: var(--clr-blue-50);  color: var(--clr-blue-700); }
+}
+
+.membroNome { font-size: var(--fs-sm); font-weight: 500; color: var(--clr-gray-800); }
+.membroRa   { font-size: var(--fs-xs); color: var(--clr-gray-400); margin-left: auto; }
+
+.pessoalEmpty { padding: 12px 16px; font-size: var(--fs-sm); color: var(--clr-gray-400); font-style: italic; }
+
+.obsBox {
+  font-size: var(--fs-sm);
+  color: var(--clr-gray-600);
+  background: var(--clr-gray-50);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+}
+
+.detailActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.btnPdf      { @include m.btn-primary; }
+.btnStatus   { @include m.btn-secondary; }
+
+// ── Criar escala ──────────────────────────────────────────────────────────────
+.createStack { display: flex; flex-direction: column; gap: 16px; }
+
+.label {
+  display: block;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--clr-gray-600);
+  margin-bottom: 4px;
+}
+
+.typeBtns {
+  display: flex;
+  gap: 8px;
+}
+
+.typeBtn {
+  @include m.btn-base;
+  flex: 1;
+  padding: 8px;
+  border: 2px solid var(--clr-gray-200);
+  background: #fff;
+  color: var(--clr-gray-500);
+  font-weight: 600;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast), color var(--transition-fast);
+
+  &:hover:not(:disabled) { border-color: var(--clr-gray-300); }
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    background: var(--clr-gray-50);
+  }
+  &--verde-active    { background: var(--clr-primary-100); color: #166534; border-color: var(--clr-primary-300); }
+  &--preta-active    { background: var(--clr-gray-200);    color: var(--clr-gray-800); border-color: var(--clr-gray-400); }
+  &--vermelha-active { background: var(--clr-red-100);     color: var(--clr-red-800);  border-color: var(--clr-red-300); }
+}
+
+.typeHint { font-size: var(--fs-xs); color: var(--clr-gray-400); margin-top: 4px; }
+
+.datesGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.input    { @include m.input; }
+.textarea { @include m.input; resize: none; }
+
+.loadingCtx {
+  font-size: var(--fs-xs);
+  color: var(--clr-blue-600);
+  padding: 8px 0;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+.alertBlocked { @include m.alert(var(--clr-red-50), var(--clr-red-200), var(--clr-red-700)); font-size: var(--fs-xs); font-weight: 500; }
+
+.membrosLabel  { display: block; font-size: var(--fs-xs); font-weight: 600; color: var(--clr-gray-600); margin-bottom: 4px; }
+.membrosHint   { font-size: var(--fs-xs); color: var(--clr-gray-400); margin-bottom: 8px; }
+.membrosStack  { display: flex; flex-direction: column; gap: 8px; }
+
+.membroRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.membroFuncao {
+  @include m.badge-base;
+  width: 80px;
+  text-align: center;
+  &--cabo     { background: var(--clr-gray-200);  color: var(--clr-gray-700); }
+  &--atirador { background: var(--clr-blue-50);   color: var(--clr-blue-700); }
+}
+
+.membroFuncaoSelect {
+  @include m.input;
+  width: 110px;
+  padding: 6px 8px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+
+  &--cabo     { background: var(--clr-gray-200); color: var(--clr-gray-700); }
+  &--atirador { background: var(--clr-blue-50);  color: var(--clr-blue-700); }
+}
+
+.membroSelect { @include m.input; flex: 1; padding: 6px 8px; }
+
+.btnRemove {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--clr-gray-200);
+  border-radius: var(--radius-md);
+  color: var(--clr-gray-500);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+
+  &:hover {
+    background: var(--clr-red-50);
+    color: var(--clr-red-600);
+    border-color: var(--clr-red-200);
+  }
+}
+
+.addBtnsRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.btnAddAtirador {
+  padding: 6px 12px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--clr-blue-700);
+  background: var(--clr-blue-50);
+  border: 1px dashed var(--clr-blue-200);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+
+  &:hover:not(:disabled) {
+    background: var(--clr-blue-100);
+    border-color: var(--clr-blue-300);
+  }
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.contagem {
+  margin-top: 8px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+
+  &--falta { color: var(--clr-yellow-600); }
+  &--ok    { color: var(--clr-primary-700, #166534); }
+}
+
+.warnMissing { font-size: var(--fs-xs); color: var(--clr-red-600); margin-top: 4px; }
+.warnPartial { font-size: var(--fs-xs); color: var(--clr-yellow-600); margin-top: 4px; }
+
+.error { font-size: var(--fs-sm); color: var(--clr-red-600); }
+
+.createFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.cancelBtn  {
+  padding: 8px 16px;
+  font-size: var(--fs-sm);
+  color: var(--clr-gray-600);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+  &:hover { color: var(--clr-gray-800); }
+}
+
+.confirmBtn { @include m.btn-primary; }

@@ -43,17 +43,17 @@ export function calcularTAF(corrida, flexao, abdominal) {
 }
 
 export const COR_CONCEITO = {
-  'Excelente': 'text-green-700',
-  'Muito Bom': 'text-green-600',
-  'Bom':       'text-blue-600',
-  'Regular':   'text-yellow-600',
-  'Insuficiente': 'text-red-600',
+  'Excelente':    'cor-conceito-excelente',
+  'Muito Bom':    'cor-conceito-muito-bom',
+  'Bom':          'cor-conceito-bom',
+  'Regular':      'cor-conceito-regular',
+  'Insuficiente': 'cor-conceito-insuf',
 };
 
 export const BG_CONCEITO = {
-  'Excelente':    'bg-green-100 text-green-800',
-  'Muito Bom':    'bg-green-50  text-green-700',
-  'Bom':          'bg-blue-50   text-blue-700',
-  'Regular':      'bg-yellow-50 text-yellow-700',
-  'Insuficiente': 'bg-red-50    text-red-700',
+  'Excelente':    'badge-conceito badge-conceito-excelente',
+  'Muito Bom':    'badge-conceito badge-conceito-muito-bom',
+  'Bom':          'badge-conceito badge-conceito-bom',
+  'Regular':      'badge-conceito badge-conceito-regular',
+  'Insuficiente': 'badge-conceito badge-conceito-insuf',
 };

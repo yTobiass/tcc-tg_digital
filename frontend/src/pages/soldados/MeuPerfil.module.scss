@@ -1,0 +1,145 @@
+@use 'mixins' as m;
+
+.loading { @include m.empty-state; height: 192px; }
+
+.pageTitle { font-size: var(--fs-xl); font-weight: 700; color: var(--clr-gray-800); margin-bottom: 24px; }
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+
+  @include m.lg { grid-template-columns: 1fr 2fr; }
+}
+
+.leftCol  { display: flex; flex-direction: column; gap: 16px; }
+.rightCol {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  @include m.lg { grid-column: span 1; }
+}
+
+// Cards
+.card { @include m.card; padding: 20px; }
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.cardTitle { font-size: var(--fs-sm); font-weight: 600; color: var(--clr-gray-700); }
+
+.statusBadge { @include m.badge-base; }
+
+.soldadoName {
+  font-size: var(--fs-base);
+  font-weight: 700;
+  color: var(--clr-gray-900);
+  margin-bottom: 2px;
+}
+
+.soldadoRa {
+  font-size: var(--fs-xs);
+  color: var(--clr-gray-400);
+  margin-bottom: 16px;
+}
+
+.infoRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--clr-gray-50);
+  &:last-child { border-bottom: none; }
+}
+
+.infoLabel { font-size: var(--fs-xs); color: var(--clr-gray-500); }
+.infoValue { font-size: var(--fs-sm); font-weight: 500; color: var(--clr-gray-800); }
+
+.noProfile { font-size: var(--fs-sm); color: var(--clr-gray-400); }
+
+// TAF card
+.tafScore {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.tafNum  { font-size: 2.5rem; font-weight: 700; color: var(--clr-gray-900); line-height: 1; }
+.tafUnit { font-size: var(--fs-sm); color: var(--clr-gray-400); margin-bottom: 4px; }
+.tafBadge { @include m.badge-base; margin-left: auto; }
+
+.tafDate { font-size: var(--fs-xs); color: var(--clr-gray-400); }
+
+.tafBreakdown {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding-top: 12px;
+  margin-top: 8px;
+  border-top: 1px solid var(--clr-gray-50);
+  text-align: center;
+  font-size: var(--fs-xs);
+  color: var(--clr-gray-500);
+}
+
+.tafBreakdownVal { font-size: var(--fs-base); font-weight: 600; color: var(--clr-gray-700); display: block; }
+
+// Tooltip (Recharts custom)
+.tooltip {
+  background: #fff;
+  border: 1px solid var(--clr-gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 8px 12px;
+  font-size: var(--fs-xs);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.tooltipTitle { font-weight: 600; color: var(--clr-gray-700); }
+.tooltipBody  { color: var(--clr-gray-600); }
+.tooltipMuted { color: var(--clr-gray-500); }
+
+// Chart card
+.chartEmpty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 160px;
+  color: var(--clr-gray-400);
+  font-size: var(--fs-sm);
+}
+
+// Table card
+.tableCardWrap { @include m.card; overflow: hidden; }
+
+.tableCardHeader {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--clr-gray-100);
+}
+
+.tableScrollWrap { overflow-x: auto; }
+
+.table {
+  @include m.table-base;
+  thead tr { @include m.table-head; }
+  tbody     { @include m.table-body; }
+}
+
+.centered  { text-align: center; }
+.boldCell  { font-weight: 700; color: var(--clr-gray-900); }
+
+.conceitoBadge  { @include m.badge-base; }
+.guardaTipoBadge{ @include m.badge-base; }
+.guardaStatus   { @include m.badge-base; }
+
+.emptyMsg {
+  padding: 16px 20px;
+  font-size: var(--fs-sm);
+  color: var(--clr-gray-400);
+}

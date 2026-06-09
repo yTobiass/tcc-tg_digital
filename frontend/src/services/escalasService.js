@@ -8,10 +8,16 @@ export const escalasService = {
   status:    (id, status)   => api.patch(`/escalas/${id}/status`, { status }).then((r) => r.data),
   remover:   (id)           => api.delete(`/escalas/${id}`),
 
+  // Troca manual de um membro de uma escala já confirmada.
+  trocarMembro: (id, soldado_removido_id, soldado_novo_id, motivo) =>
+    api.put(`/escalas/${id}/membro`, { soldado_removido_id, soldado_novo_id, motivo }).then((r) => r.data),
+
   sugestao:  (tipo, data_inicio) =>
     api.get('/escalas/sugestao', { params: { tipo, data_inicio } }).then((r) => r.data),
 
-  fila:      (tipo)         => api.get(`/escalas/fila/${tipo}`).then((r) => r.data),
+  // tipo da fila: 'cabos' | 'atiradores'
+  fila:            (tipo) => api.get(`/escalas/fila/${tipo}`).then((r) => r.data),
+  inicializarFila: ()     => api.post('/escalas/fila/inicializar').then((r) => r.data),
   reordenar: (tipo, soldado_id, acao) =>
     api.post(`/escalas/fila/${tipo}/reordenar`, { soldado_id, acao }).then((r) => r.data),
 

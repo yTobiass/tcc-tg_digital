@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import styles from './Layout.module.scss';
 
 const NAV_SARGENTO = [
   { to: '/dashboard',   label: 'Dashboard' },
@@ -11,14 +12,8 @@ const NAV_SARGENTO = [
   { to: '/escalas',     label: 'Escalas' },
   { to: '/relatorios',  label: 'Relatórios' },
 ];
-const NAV_COMANDANTE = [
-  ...NAV_SARGENTO,
-  { to: '/admin', label: 'Admin' },
-];
+const NAV_COMANDANTE = [...NAV_SARGENTO, { to: '/admin', label: 'Admin' }];
 const NAV_SOLDADO = [{ to: '/meu-perfil', label: 'Meu Perfil' }];
-
-const LINK_ATIVO   = 'bg-green-700 text-white';
-const LINK_INATIVO = 'text-green-200 hover:text-white hover:bg-green-700';
 
 export function Layout({ children }) {
   const { usuario, logout }   = useAuth();
@@ -32,29 +27,23 @@ export function Layout({ children }) {
 
   const paginaAtual = links.find((l) => location.pathname.startsWith(l.to));
 
-  function handleLogout() {
-    logout();
-    navigate('/login', { replace: true });
-  }
-
-  function fecharMenu() { setMenu(false); }
+  function handleLogout() { logout(); navigate('/login', { replace: true }); }
+  function fecharMenu()   { setMenu(false); }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      <nav className="bg-green-800 text-white shadow-md">
-        <div className="max-w-7xl mx-auto px-4 flex items-center justify-between h-14">
+    <div className={styles.root}>
+      <nav className={styles.nav}>
+        <div className={styles.navInner}>
+          <span className={styles.logo}>TG 02-032</span>
 
-          {/* Logo */}
-          <span className="font-bold tracking-wide text-sm flex-shrink-0 mr-4">TG 02-032</span>
-
-          {/* Desktop nav ─ hidden below sm */}
-          <div className="hidden sm:flex items-center gap-0.5 flex-1 overflow-x-auto">
+          {/* Desktop nav */}
+          <div className={styles.desktopLinks}>
             {links.map(({ to, label }) => (
               <NavLink
                 key={to}
                 to={to}
                 className={({ isActive }) =>
-                  `px-3 py-1.5 rounded text-sm transition-colors flex-shrink-0 ${isActive ? LINK_ATIVO : LINK_INATIVO}`
+                  `${styles.navLink}${isActive ? ` ${styles.navLinkActive}` : ''}`
                 }
               >
                 {label}
@@ -62,35 +51,27 @@ export function Layout({ children }) {
             ))}
           </div>
 
-          {/* Mobile: nome da página atual */}
-          <span className="sm:hidden text-green-200 text-sm font-medium flex-1 text-center">
+          {/* Mobile: current page name */}
+          <span className={styles.mobilePageTitle}>
             {paginaAtual?.label ?? 'TG 02-032'}
           </span>
 
-          {/* Direita: usuário + sair (desktop) + hambúrguer (mobile) */}
-          <div className="flex items-center gap-3 ml-3">
-            <span className="text-green-200 text-sm hidden md:block truncate max-w-[140px]">
-              {usuario?.nome}
-            </span>
-            <button
-              onClick={handleLogout}
-              className="text-green-200 hover:text-white text-sm transition-colors hidden sm:block"
-            >
+          <div className={styles.navRight}>
+            <span className={styles.userName}>{usuario?.nome}</span>
+            <button onClick={handleLogout} className={styles.logoutBtn}>
               Sair
             </button>
-
-            {/* Hambúrguer — só no mobile */}
             <button
               onClick={() => setMenu((v) => !v)}
               aria-label={menuAberto ? 'Fechar menu' : 'Abrir menu'}
-              className="sm:hidden p-1.5 rounded text-green-200 hover:text-white hover:bg-green-700 transition-colors"
+              className={styles.hamburger}
             >
               {menuAberto ? (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               ) : (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               )}
@@ -98,28 +79,28 @@ export function Layout({ children }) {
           </div>
         </div>
 
-        {/* Menu mobile dropdown */}
+        {/* Mobile dropdown */}
         {menuAberto && (
-          <div className="sm:hidden bg-green-900 border-t border-green-700 px-3 py-2 space-y-0.5">
+          <div className={styles.mobileMenu}>
             {links.map(({ to, label }) => (
               <NavLink
                 key={to}
                 to={to}
                 onClick={fecharMenu}
                 className={({ isActive }) =>
-                  `block px-3 py-2.5 rounded-lg text-sm transition-colors ${isActive ? LINK_ATIVO : LINK_INATIVO}`
+                  `${styles.mobileLink}${isActive ? ` ${styles.mobileLinkActive}` : ''}`
                 }
               >
                 {label}
               </NavLink>
             ))}
-            <div className="border-t border-green-700 pt-2 mt-2">
+            <div className={styles.mobileDivider}>
               {usuario?.nome && (
-                <p className="px-3 py-1 text-xs text-green-400 truncate">{usuario.nome}</p>
+                <p className={styles.mobileUser}>{usuario.nome}</p>
               )}
               <button
                 onClick={() => { fecharMenu(); handleLogout(); }}
-                className={`block w-full text-left px-3 py-2.5 rounded-lg text-sm ${LINK_INATIVO}`}
+                className={styles.mobileLink}
               >
                 Sair
               </button>
@@ -128,7 +109,7 @@ export function Layout({ children }) {
         )}
       </nav>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6">{children}</main>
+      <main className={styles.main}>{children}</main>
     </div>
   );
 }

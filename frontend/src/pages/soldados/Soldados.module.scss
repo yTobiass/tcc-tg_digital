@@ -1,0 +1,73 @@
+@use 'mixins' as m;
+
+.pageHeader { @include m.page-header; }
+.pageTitle {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  color: var(--clr-gray-800);
+}
+
+.headerActions { display: flex; gap: 8px; }
+
+.btnImport { @include m.btn-secondary; }
+.btnNew    { @include m.btn-primary; }
+
+.filterBar { @include m.filter-bar; }
+
+.searchInput {
+  @include m.input;
+  flex: 1;
+  min-width: 192px;
+}
+
+.select { @include m.input; width: auto; }
+
+.clearBtn {
+  font-size: var(--fs-sm);
+  color: var(--clr-gray-500);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: color var(--transition-fast);
+  &:hover { color: var(--clr-gray-700); }
+}
+
+.tableWrap {
+  @include m.card;
+  overflow: hidden;
+}
+
+.tableEmpty { @include m.empty-state; }
+.tableError { @include m.empty-state; color: var(--clr-red-500); }
+
+.table {
+  @include m.table-base;
+
+  thead tr { @include m.table-head; }
+  tbody { @include m.table-body; }
+}
+
+.raCell    { font-family: ui-monospace, monospace; color: var(--clr-gray-600); }
+.nameCell  { font-weight: 500; color: var(--clr-gray-800); }
+.muteCell  { color: var(--clr-gray-500); }
+
+.hideMd { display: none; @include m.md { display: table-cell; } }
+
+.editBtn {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--clr-primary-700);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+  &:hover { color: var(--clr-primary-900); }
+}
+
+.tableFooter {
+  padding: 12px 16px;
+  border-top: 1px solid var(--clr-gray-100);
+  font-size: var(--fs-xs);
+  color: var(--clr-gray-400);
+}

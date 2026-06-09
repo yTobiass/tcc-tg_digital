@@ -1,0 +1,282 @@
+@use 'mixins' as m;
+
+.header { @include m.page-header; }
+.titleGroup {}
+.pageTitle { font-size: var(--fs-xl); font-weight: 700; color: var(--clr-gray-800); }
+
+.pdfBadge {
+  @include m.badge-base;
+  background: var(--clr-primary-50);
+  color: var(--clr-primary-700);
+  border: 1px solid var(--clr-primary-200);
+  margin-top: 4px;
+}
+
+.backBtn {
+  font-size: var(--fs-sm);
+  color: var(--clr-gray-500);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+  &:hover { color: var(--clr-gray-700); }
+}
+
+.formStack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 768px;
+}
+
+// Section card
+.sectionCard {
+  @include m.card;
+  padding: 20px;
+}
+
+.sectionCardSpaced {
+  @include m.card;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sectionHeader {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--clr-gray-500);
+  margin-bottom: 16px;
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.sectionNum {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--clr-primary-700);
+  background: var(--clr-primary-50);
+  border: 1px solid var(--clr-primary-200);
+  padding: 2px 8px;
+  border-radius: var(--radius-md);
+}
+
+.sectionName {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--clr-gray-700);
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+
+  @include m.sm { grid-template-columns: repeat(2, 1fr); }
+}
+
+.label {
+  display: block;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--clr-gray-600);
+  margin-bottom: 4px;
+}
+
+.input     { @include m.input; }
+.inputSm   { @include m.input-sm; }
+.textarea  { @include m.input; resize: none; }
+
+.autoField {
+  background: var(--clr-gray-50);
+  border: 1px solid var(--clr-gray-200);
+  border-radius: var(--radius-lg);
+  padding: 8px 12px;
+  font-size: var(--fs-sm);
+  color: var(--clr-gray-700);
+  font-weight: 500;
+  min-height: 38px;
+}
+
+.autoEmpty {
+  color: var(--clr-gray-400);
+  font-weight: 400;
+  font-style: italic;
+}
+
+.loadingCtx {
+  font-size: var(--fs-xs);
+  color: var(--clr-blue-600);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.alertWarning {
+  @include m.alert(var(--clr-yellow-50), var(--clr-yellow-200), var(--clr-yellow-700));
+}
+
+.alertSuccess {
+  @include m.alert(var(--clr-primary-50), var(--clr-primary-200), var(--clr-primary-700));
+}
+
+.alertWarnTitle  { font-weight: 500; }
+.alertWarnBody   { font-size: var(--fs-xs); margin-top: 2px; }
+
+// Status toggle
+.toggleRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.toggleLabel {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--clr-gray-700);
+}
+
+.toggleBtn {
+  padding: 4px 12px;
+  font-size: var(--fs-xs);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--clr-gray-300);
+  background: #fff;
+  color: var(--clr-gray-500);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  &--altActive {
+    background: var(--clr-red-50);
+    border-color: var(--clr-red-400);
+    color: var(--clr-red-700);
+    font-weight: 600;
+  }
+
+  &--okActive {
+    background: var(--clr-primary-50);
+    border-color: var(--clr-primary-400);
+    color: var(--clr-primary-700);
+    font-weight: 600;
+  }
+}
+
+// Section subtitle (pessoal de serviço)
+.subTitle {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--clr-gray-500);
+  margin-bottom: 8px;
+}
+
+.atiradorRow {
+  display: flex;
+  gap: 12px;
+  font-size: var(--fs-sm);
+  color: var(--clr-gray-700);
+}
+
+.atiradorIdx  { color: var(--clr-gray-400); width: 16px; }
+.atiradorRa   { font-weight: 500; }
+.atiradorSep  { color: var(--clr-gray-400); }
+.atiradorNome {}
+
+.atiradorEmpty { font-size: var(--fs-xs); color: var(--clr-gray-400); font-style: italic; }
+
+// Posto table
+.postoWrap { overflow-x: auto; margin: 0 -4px; }
+
+.postoTable {
+  @include m.table-base;
+  min-width: 480px;
+  border: 1px solid var(--clr-gray-200);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+
+  thead tr { @include m.table-head; }
+
+  tbody tr {
+    border-bottom: 1px solid var(--clr-gray-100);
+    transition: background-color var(--transition-fast);
+    &:hover { background: var(--clr-gray-50); }
+    td { padding: 8px 12px; }
+  }
+}
+
+.postoQuarto  { font-weight: 600; color: var(--clr-gray-700); }
+.postoHorario { color: var(--clr-gray-400); font-size: var(--fs-xs); }
+
+.postoTag {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: var(--fs-xs);
+  color: var(--clr-primary-700);
+}
+
+.selecionadoHint {
+  margin-top: 4px;
+  font-size: var(--fs-xs);
+  color: var(--clr-gray-500);
+}
+
+.divider { border: none; border-top: 1px solid var(--clr-gray-100); }
+
+.charCount {
+  font-size: var(--fs-xs);
+  color: var(--clr-gray-400);
+  text-align: right;
+  margin-top: 4px;
+}
+
+// Signature preview
+.signatureCard {
+  background: var(--clr-gray-50);
+  border: 1px solid var(--clr-gray-200);
+  border-radius: var(--radius-xl);
+  padding: 16px;
+  font-size: var(--fs-sm);
+  color: var(--clr-gray-600);
+}
+
+.sigTitle  { font-weight: 600; color: var(--clr-gray-700); margin-bottom: 2px; }
+.sigName   { font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.05em; }
+.sigRole   { font-size: var(--fs-xs); color: var(--clr-gray-400); }
+
+.errorCard { @include m.alert(var(--clr-red-50), var(--clr-red-200), var(--clr-red-700)); }
+
+// Buttons
+.btnRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding-top: 8px;
+  padding-bottom: 24px;
+}
+
+.cancelBtn { @include m.btn-secondary; }
+.draftBtn  {
+  @include m.btn-base;
+  padding: 8px 20px;
+  background: var(--clr-gray-700);
+  color: #fff;
+  &:hover:not(:disabled) { background: var(--clr-gray-800); }
+}
+.pdfBtn    { @include m.btn-primary; }
+.pdfHint   { font-size: var(--fs-xs); color: var(--clr-gray-400); }

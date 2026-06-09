@@ -1,0 +1,15 @@
+@use 'mixins' as m;
+
+.badge {
+  @include m.badge-base;
+}
+
+// Status
+.ativo      { background: var(--clr-primary-100); color: #166534; }
+.licenca    { background: var(--clr-yellow-100);  color: var(--clr-yellow-800); }
+.baixado    { background: var(--clr-red-100);      color: var(--clr-red-800); }
+.dispensado { background: var(--clr-gray-100);    color: var(--clr-gray-600); }
+
+// Graduação
+.cabo     { background: var(--clr-blue-100);  color: var(--clr-blue-800); }
+.atirador { background: var(--clr-gray-100);  color: var(--clr-gray-700); }

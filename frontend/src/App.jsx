@@ -1,8 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import { ProtectedRoute, rotaInicial } from './routes/ProtectedRoute';
+import { ProtectedRoute, ExigeAutenticacao, rotaInicial } from './routes/ProtectedRoute';
 import { useAuth } from './hooks/useAuth';
 import Login from './pages/auth/Login';
+import TrocarSenha from './pages/auth/TrocarSenha';
 import Dashboard from './pages/dashboard/Dashboard';
 import Soldados from './pages/soldados/Soldados';
 import MeuPerfil from './pages/soldados/MeuPerfil';
@@ -17,6 +18,7 @@ function RootRedirect() {
   const { usuario, carregando } = useAuth();
   if (carregando) return null;
   if (!usuario) return <Navigate to="/login" replace />;
+  if (usuario.precisa_trocar_senha) return <Navigate to="/trocar-senha" replace />;
   return <Navigate to={rotaInicial(usuario.role)} replace />;
 }
 
@@ -27,6 +29,14 @@ export default function App() {
         <Routes>
           <Route path="/" element={<RootRedirect />} />
           <Route path="/login" element={<Login />} />
+          <Route
+            path="/trocar-senha"
+            element={
+              <ExigeAutenticacao>
+                <TrocarSenha />
+              </ExigeAutenticacao>
+            }
+          />
 
           <Route
             path="/dashboard"

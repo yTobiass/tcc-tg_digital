@@ -1,4 +1,13 @@
 import { useEffect } from 'react';
+import styles from './Modal.module.scss';
+
+const LARGURA_MAP = {
+  'max-w-sm':  styles['dialog--sm'],
+  'max-w-md':  styles['dialog--md'],
+  'max-w-lg':  styles['dialog--md'],
+  'max-w-xl':  styles['dialog--lg'],
+  'max-w-2xl': styles['dialog--xl'],
+};
 
 export function Modal({ aberto, onFechar, titulo, children, largura = 'max-w-lg' }) {
   useEffect(() => {
@@ -9,21 +18,23 @@ export function Modal({ aberto, onFechar, titulo, children, largura = 'max-w-lg'
 
   if (!aberto) return null;
 
+  const sizeClass = LARGURA_MAP[largura] ?? styles['dialog--md'];
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onFechar} />
-      <div className={`relative bg-white rounded-xl shadow-xl w-full ${largura} max-h-[90vh] flex flex-col`}>
-        <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">
-          <h2 className="text-base font-semibold text-gray-800">{titulo}</h2>
+    <div className={styles.overlay}>
+      <div className={styles.backdrop} onClick={onFechar} />
+      <div className={`${styles.dialog} ${sizeClass}`}>
+        <div className={styles.header}>
+          <h2 className={styles.title}>{titulo}</h2>
           <button
             onClick={onFechar}
-            className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+            className={styles.closeBtn}
             aria-label="Fechar"
           >
             ×
           </button>
         </div>
-        <div className="overflow-y-auto px-6 py-4">{children}</div>
+        <div className={styles.body}>{children}</div>
       </div>
     </div>
   );

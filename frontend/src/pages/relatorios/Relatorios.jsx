@@ -9,45 +9,37 @@ import { treinosService }     from '../../services/treinosService';
 import { soldadosService }    from '../../services/soldadosService';
 import { gerarPdfPresenca }   from '../../utils/relatoriosPDF';
 import { formatarData, hoje } from '../../utils/data';
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
+import styles from './Relatorios.module.scss';
 
 function primeiroDiaMes() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
 }
 
-function badgeTaxa(taxa) {
-  if (taxa === null || taxa === undefined) return 'bg-gray-100 text-gray-400';
-  if (taxa >= 75) return 'bg-green-100 text-green-800';
-  if (taxa >= 50) return 'bg-yellow-100 text-yellow-800';
-  return 'bg-red-100 text-red-800';
+function taxaKey(taxa) {
+  if (taxa == null) return null;
+  if (taxa >= 75) return 'high';
+  if (taxa >= 50) return 'medium';
+  return 'low';
 }
 
-function badgeStatus(status) {
-  const m = {
-    ativo:      'bg-green-100 text-green-800',
-    licenca:    'bg-yellow-100 text-yellow-800',
-    baixado:    'bg-red-100 text-red-800',
-    dispensado: 'bg-gray-100 text-gray-500',
-  };
-  return m[status] ?? 'bg-gray-100 text-gray-500';
-}
+const STATUS_BADGE_STYLE = {
+  ativo:      { background: 'var(--clr-primary-100)', color: '#166534' },
+  licenca:    { background: 'var(--clr-yellow-100)',  color: 'var(--clr-yellow-800)' },
+  baixado:    { background: 'var(--clr-red-100)',     color: 'var(--clr-red-800)' },
+  dispensado: { background: 'var(--clr-gray-100)',    color: 'var(--clr-gray-500)' },
+};
 
-function labelStatus(s) {
-  return { ativo: 'Ativo', licenca: 'Licença', baixado: 'Baixado', dispensado: 'Dispensado' }[s] ?? s;
-}
+const STATUS_LABEL = { ativo: 'Ativo', licenca: 'Licença', baixado: 'Baixado', dispensado: 'Dispensado' };
 
 function InputLabel({ label, children }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-gray-600 mb-1">{label}</label>
+      <label className={styles.fieldLabel}>{label}</label>
       {children}
     </div>
   );
 }
-
-const INPUT_CLS = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500';
 
 // ── Aba: Presença ─────────────────────────────────────────────────────────────
 
@@ -81,112 +73,105 @@ function AbaPresenca() {
     gerarPdfPresenca({ dados, dataInicio, dataFim, filtros: { turma, pelotao } });
   }
 
-  const totalPres  = dados?.reduce((a, s) => a + (s.presentes ?? 0), 0) ?? 0;
-  const totalFalt  = dados?.reduce((a, s) => a + (s.ausentes  ?? 0), 0) ?? 0;
-  const totalReg   = dados?.reduce((a, s) => a + (s.total_registros ?? 0), 0) ?? 0;
-  const taxaGeral  = totalReg > 0 ? Math.round(100 * totalPres / totalReg) : null;
+  const totalPres = dados?.reduce((a, s) => a + (s.presentes       ?? 0), 0) ?? 0;
+  const totalFalt = dados?.reduce((a, s) => a + (s.ausentes        ?? 0), 0) ?? 0;
+  const totalReg  = dados?.reduce((a, s) => a + (s.total_registros ?? 0), 0) ?? 0;
+  const taxa      = totalReg > 0 ? Math.round(100 * totalPres / totalReg) : null;
+
+  const summaryItems = [
+    { label: 'Soldados',   value: dados?.length ?? 0, key: 'gray' },
+    { label: 'Presenças',  value: totalPres,            key: 'green' },
+    { label: 'Faltas',     value: totalFalt,            key: 'red' },
+    { label: 'Taxa geral', value: taxa != null ? `${taxa}%` : '—', key: taxa != null && taxa >= 75 ? 'green' : 'red' },
+  ];
 
   return (
-    <div className="space-y-4">
-      {/* Filtros */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-        <h2 className="text-sm font-semibold text-gray-700 mb-4">Filtros</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <div className={styles.stack}>
+      <div className={styles.filterCard}>
+        <p className={styles.filterTitle}>Filtros</p>
+        <div className={styles.filterGrid}>
           <InputLabel label="Data início">
-            <input type="date" className={INPUT_CLS} value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} />
+            <input type="date" className={styles.input} value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} />
           </InputLabel>
           <InputLabel label="Data fim">
-            <input type="date" className={INPUT_CLS} value={dataFim} onChange={(e) => setDataFim(e.target.value)} />
+            <input type="date" className={styles.input} value={dataFim} onChange={(e) => setDataFim(e.target.value)} />
           </InputLabel>
           <InputLabel label="Turma">
-            <input type="text" className={INPUT_CLS} value={turma} onChange={(e) => setTurma(e.target.value)} placeholder="Ex: 2024-A" />
+            <input type="text" className={styles.input} value={turma} onChange={(e) => setTurma(e.target.value)} placeholder="Ex: 2024-A" />
           </InputLabel>
           <InputLabel label="Pelotão">
-            <input type="text" className={INPUT_CLS} value={pelotao} onChange={(e) => setPelotao(e.target.value)} placeholder="Ex: 1º Pel" />
+            <input type="text" className={styles.input} value={pelotao} onChange={(e) => setPelotao(e.target.value)} placeholder="Ex: 1º Pel" />
           </InputLabel>
         </div>
-        <div className="flex gap-2 mt-4">
-          <button
-            onClick={buscar}
-            disabled={carregando || !dataInicio || !dataFim}
-            className="px-5 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"
-          >
+        <div className={styles.filterActions}>
+          <button onClick={buscar} disabled={carregando || !dataInicio || !dataFim} className={styles.searchBtn}>
             {carregando ? 'Buscando…' : 'Buscar'}
           </button>
           {dados?.length > 0 && (
-            <button
-              onClick={exportarPDF}
-              className="px-5 py-2 text-sm font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-800"
-            >
-              ⬇ Exportar PDF
-            </button>
+            <button onClick={exportarPDF} className={styles.exportBtn}>⬇ Exportar PDF</button>
           )}
         </div>
-        {erro && <p className="text-sm text-red-600 mt-2">{erro}</p>}
+        {erro && <p className={styles.error}>{erro}</p>}
       </div>
 
-      {/* Resumo */}
       {dados && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: 'Soldados',   value: dados.length,  cls: 'text-gray-800' },
-            { label: 'Presenças',  value: totalPres,     cls: 'text-green-700' },
-            { label: 'Faltas',     value: totalFalt,     cls: 'text-red-600' },
-            { label: 'Taxa geral', value: taxaGeral != null ? `${taxaGeral}%` : '—', cls: taxaGeral != null && taxaGeral >= 75 ? 'text-green-700' : 'text-red-600' },
-          ].map(({ label, value, cls }) => (
-            <div key={label} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 text-center">
-              <p className={`text-2xl font-bold ${cls}`}>{value}</p>
-              <p className="text-xs text-gray-400 mt-1">{label}</p>
+        <div className={styles.summaryGrid}>
+          {summaryItems.map(({ label, value, key }) => (
+            <div key={label} className={styles.summaryCard}>
+              <p className={`${styles.summaryValue} ${styles[`summaryValue--${key}`]}`}>{value}</p>
+              <p className={styles.summaryLabel}>{label}</p>
             </div>
           ))}
         </div>
       )}
 
-      {/* Tabela */}
       {dados && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-700">Resultado por Soldado</h2>
-            <span className="text-xs text-gray-400">{dados.length} soldado(s)</span>
+        <div className={styles.tableCard}>
+          <div className={styles.tableCardHeader}>
+            <h2 className={styles.tableCardTitle}>Resultado por Soldado</h2>
+            <span className={styles.tableCount}>{dados.length} soldado(s)</span>
           </div>
           {dados.length === 0 ? (
-            <p className="px-5 py-6 text-sm text-gray-400 text-center">Nenhum dado encontrado para os filtros selecionados.</p>
+            <p className={styles.emptyTable}>Nenhum dado encontrado para os filtros selecionados.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-left">
-                    <th className="px-4 py-3">Nome</th>
-                    <th className="px-4 py-3">RA</th>
-                    <th className="px-4 py-3">Pelotão</th>
-                    <th className="px-4 py-3">Turma</th>
-                    <th className="px-4 py-3 text-center">Pres.</th>
-                    <th className="px-4 py-3 text-center">Falt.</th>
-                    <th className="px-4 py-3 text-center">Total</th>
-                    <th className="px-4 py-3 text-center">Taxa</th>
+            <div className={styles.tableScrollWrap}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>RA</th>
+                    <th>Pelotão</th>
+                    <th>Turma</th>
+                    <th className={styles.centered}>Pres.</th>
+                    <th className={styles.centered}>Falt.</th>
+                    <th className={styles.centered}>Total</th>
+                    <th className={styles.centered}>Taxa</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {dados.map((s) => (
-                    <tr key={s.soldado_id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium text-gray-800">{s.nome_completo}</td>
-                      <td className="px-4 py-3 text-gray-500 font-mono text-xs">{s.ra}</td>
-                      <td className="px-4 py-3 text-gray-600">{s.pelotao || '—'}</td>
-                      <td className="px-4 py-3 text-gray-600">{s.turma   || '—'}</td>
-                      <td className="px-4 py-3 text-center text-green-700 font-medium">{s.presentes}</td>
-                      <td className="px-4 py-3 text-center text-red-600 font-medium">{s.ausentes}</td>
-                      <td className="px-4 py-3 text-center text-gray-500">{s.total_registros}</td>
-                      <td className="px-4 py-3 text-center">
-                        {s.taxa_presenca != null ? (
-                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${badgeTaxa(s.taxa_presenca)}`}>
-                            {s.taxa_presenca}%
-                          </span>
-                        ) : (
-                          <span className="text-gray-300 text-xs">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                <tbody>
+                  {dados.map((s) => {
+                    const tk = taxaKey(s.taxa_presenca);
+                    return (
+                      <tr key={s.soldado_id}>
+                        <td>{s.nome_completo}</td>
+                        <td className={styles.monoCell}>{s.ra}</td>
+                        <td>{s.pelotao || '—'}</td>
+                        <td>{s.turma   || '—'}</td>
+                        <td className={`${styles.centered} ${styles.greenCell}`}>{s.presentes}</td>
+                        <td className={`${styles.centered} ${styles.redCell}`}>{s.ausentes}</td>
+                        <td className={styles.centered}>{s.total_registros}</td>
+                        <td className={styles.centered}>
+                          {tk ? (
+                            <span className={`${styles.taxaBadge} ${styles[`taxaBadge--${tk}`]}`}>
+                              {s.taxa_presenca}%
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--clr-gray-300)', fontSize: 'var(--fs-xs)' }}>—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -197,17 +182,17 @@ function AbaPresenca() {
   );
 }
 
-// ── Aba: Evolução de Treinos ─────────────────────────────────────────────────
+// ── Aba: Evolução de Treinos ──────────────────────────────────────────────────
 
 function TooltipEv({ active, payload, label, unidade, isMedio }) {
   if (!active || !payload?.length) return null;
   const val = payload[0]?.value;
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow px-3 py-2 text-xs space-y-1">
-      <p className="font-semibold text-gray-700">{formatarData(label)}</p>
-      <p className="text-gray-600">
+    <div className={styles.tooltip}>
+      <p className={styles.tooltipTitle}>{formatarData(label)}</p>
+      <p className={styles.tooltipBody}>
         {isMedio ? 'Média: ' : 'Resultado: '}
-        <span className="font-bold text-gray-900">{val}</span>
+        <strong style={{ color: 'var(--clr-gray-900)' }}>{val}</strong>
         {unidade ? ` ${unidade}` : ''}
       </p>
     </div>
@@ -215,24 +200,21 @@ function TooltipEv({ active, payload, label, unidade, isMedio }) {
 }
 
 function AbaEvolucao() {
-  const [tipos,       setTipos]       = useState([]);
-  const [soldados,    setSoldados]    = useState([]);
-  const [tipoId,      setTipoId]      = useState('');
-  const [soldadoId,   setSoldadoId]   = useState('');
-  const [dataInicio,  setDataInicio]  = useState(primeiroDiaMes);
-  const [dataFim,     setDataFim]     = useState(hoje);
-  const [dados,       setDados]       = useState(null);
-  const [carregando,  setCarregando]  = useState(false);
-  const [erro,        setErro]        = useState(null);
+  const [tipos,      setTipos]      = useState([]);
+  const [soldados,   setSoldados]   = useState([]);
+  const [tipoId,     setTipoId]     = useState('');
+  const [soldadoId,  setSoldadoId]  = useState('');
+  const [dataInicio, setDataInicio] = useState(primeiroDiaMes);
+  const [dataFim,    setDataFim]    = useState(hoje);
+  const [dados,      setDados]      = useState(null);
+  const [carregando, setCarregando] = useState(false);
+  const [erro,       setErro]       = useState(null);
 
   useEffect(() => {
     Promise.all([
       treinosService.listarTipos().catch(() => []),
       soldadosService.listar({ status: 'ativo' }).catch(() => []),
-    ]).then(([tps, sols]) => {
-      setTipos(tps);
-      setSoldados(sols);
-    });
+    ]).then(([tps, sols]) => { setTipos(tps); setSoldados(sols); });
   }, []);
 
   async function buscar() {
@@ -258,13 +240,12 @@ function AbaEvolucao() {
   const dataKey = isMedio ? 'media_resultado' : 'resultado';
 
   return (
-    <div className="space-y-4">
-      {/* Filtros */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-        <h2 className="text-sm font-semibold text-gray-700 mb-4">Filtros</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <div className={styles.stack}>
+      <div className={styles.filterCard}>
+        <p className={styles.filterTitle}>Filtros</p>
+        <div className={styles.filterGrid}>
           <InputLabel label="Tipo de treino *">
-            <select className={INPUT_CLS} value={tipoId} onChange={(e) => setTipoId(e.target.value)}>
+            <select className={styles.select} value={tipoId} onChange={(e) => setTipoId(e.target.value)}>
               <option value="">Selecione…</option>
               {tipos.map((t) => (
                 <option key={t.id} value={t.id}>{t.nome}{t.unidade ? ` (${t.unidade})` : ''}</option>
@@ -272,7 +253,7 @@ function AbaEvolucao() {
             </select>
           </InputLabel>
           <InputLabel label="Soldado (vazio = média geral)">
-            <select className={INPUT_CLS} value={soldadoId} onChange={(e) => setSoldadoId(e.target.value)}>
+            <select className={styles.select} value={soldadoId} onChange={(e) => setSoldadoId(e.target.value)}>
               <option value="">Todos (média)</option>
               {soldados.map((s) => (
                 <option key={s.id} value={s.id}>{s.nome_completo}</option>
@@ -280,35 +261,34 @@ function AbaEvolucao() {
             </select>
           </InputLabel>
           <InputLabel label="Data início">
-            <input type="date" className={INPUT_CLS} value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} />
+            <input type="date" className={styles.input} value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} />
           </InputLabel>
           <InputLabel label="Data fim">
-            <input type="date" className={INPUT_CLS} value={dataFim} onChange={(e) => setDataFim(e.target.value)} />
+            <input type="date" className={styles.input} value={dataFim} onChange={(e) => setDataFim(e.target.value)} />
           </InputLabel>
         </div>
-        <button
-          onClick={buscar}
-          disabled={carregando || !tipoId}
-          className="mt-4 px-5 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"
-        >
-          {carregando ? 'Buscando…' : 'Buscar'}
-        </button>
-        {erro && <p className="text-sm text-red-600 mt-2">{erro}</p>}
+        <div className={styles.filterActions}>
+          <button onClick={buscar} disabled={carregando || !tipoId} className={styles.searchBtn}>
+            {carregando ? 'Buscando…' : 'Buscar'}
+          </button>
+        </div>
+        {erro && <p className={styles.error}>{erro}</p>}
       </div>
 
-      {/* Gráfico */}
       {dados && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-gray-700">
+        <div className={styles.chartCard}>
+          <div className={styles.chartHeader}>
+            <p className={styles.chartTitle}>
               Evolução — {tipoSelecionado?.nome ?? ''}
-              {isMedio ? ' (média geral)' : ` — ${soldados.find((s) => String(s.id) === String(soldadoId))?.nome_completo ?? ''}`}
-            </h2>
-            <span className="text-xs text-gray-400">{dados.length} registro(s)</span>
+              {isMedio
+                ? ' (média geral)'
+                : ` — ${soldados.find((s) => String(s.id) === String(soldadoId))?.nome_completo ?? ''}`}
+            </p>
+            <span className={styles.chartPoints}>{dados.length} registro(s)</span>
           </div>
 
           {dados.length < 2 ? (
-            <div className="flex items-center justify-center h-48 text-gray-400 text-sm">
+            <div className={styles.chartEmpty}>
               {dados.length === 0
                 ? 'Nenhum registro encontrado para estes filtros.'
                 : 'Apenas um ponto de dados — o gráfico aparece a partir de dois.'}
@@ -323,51 +303,40 @@ function AbaEvolucao() {
                   tick={{ fontSize: 11, fill: '#9ca3af' }}
                   axisLine={false} tickLine={false}
                 />
-                <YAxis
-                  tick={{ fontSize: 11, fill: '#9ca3af' }}
-                  axisLine={false} tickLine={false} width={42}
-                />
+                <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} width={42} />
                 <Tooltip content={<TooltipEv unidade={unidade} isMedio={isMedio} />} />
-                <Line
-                  type="monotone"
-                  dataKey={dataKey}
-                  stroke="#16a34a"
-                  strokeWidth={2}
-                  dot={{ fill: '#16a34a', r: 4, strokeWidth: 0 }}
-                  activeDot={{ r: 6 }}
-                  connectNulls
-                />
+                <Line type="monotone" dataKey={dataKey} stroke="#16a34a" strokeWidth={2}
+                  dot={{ fill: '#16a34a', r: 4, strokeWidth: 0 }} activeDot={{ r: 6 }} connectNulls />
               </LineChart>
             </ResponsiveContainer>
           )}
         </div>
       )}
 
-      {/* Tabela de valores */}
       {dados && dados.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100">
-            <h2 className="text-sm font-semibold text-gray-700">Detalhamento</h2>
+        <div className={styles.tableCard}>
+          <div className={styles.tableCardHeader}>
+            <h2 className={styles.tableCardTitle}>Detalhamento</h2>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-left">
-                  <th className="px-5 py-3">Data</th>
-                  <th className="px-5 py-3 text-right">{isMedio ? 'Média' : 'Resultado'}{unidade ? ` (${unidade})` : ''}</th>
-                  {isMedio && <th className="px-5 py-3 text-center">Presentes</th>}
+          <div className={styles.tableScrollWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th style={{ textAlign: 'right' }}>
+                    {isMedio ? 'Média' : 'Resultado'}{unidade ? ` (${unidade})` : ''}
+                  </th>
+                  {isMedio && <th className={styles.centered}>Presentes</th>}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody>
                 {[...dados].reverse().map((d, i) => (
-                  <tr key={i} className="hover:bg-gray-50">
-                    <td className="px-5 py-3 text-gray-600">{formatarData(d.data)}</td>
-                    <td className="px-5 py-3 text-right font-semibold text-gray-800">
+                  <tr key={i}>
+                    <td>{formatarData(d.data)}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--clr-gray-800)' }}>
                       {(isMedio ? d.media_resultado : d.resultado) ?? '—'}
                     </td>
-                    {isMedio && (
-                      <td className="px-5 py-3 text-center text-gray-500">{d.total_presentes}</td>
-                    )}
+                    {isMedio && <td className={styles.centered}>{d.total_presentes}</td>}
                   </tr>
                 ))}
               </tbody>
@@ -382,31 +351,24 @@ function AbaEvolucao() {
 // ── Aba: Efetivo ──────────────────────────────────────────────────────────────
 
 const STATUS_ORDER = ['ativo', 'licenca', 'baixado', 'dispensado'];
-const STATUS_CARD_CLS = {
-  ativo:      { border: 'border-green-200',  num: 'text-green-700', label: 'Ativos' },
-  licenca:    { border: 'border-yellow-200', num: 'text-yellow-700', label: 'Licença' },
-  baixado:    { border: 'border-red-200',    num: 'text-red-600',    label: 'Baixados' },
-  dispensado: { border: 'border-gray-200',   num: 'text-gray-500',   label: 'Dispensados' },
-};
+const STATUS_CARD_LABEL = { ativo: 'Ativos', licenca: 'Licença', baixado: 'Baixados', dispensado: 'Dispensados' };
 
 function AbaEfetivo() {
-  const [dados,      setDados]      = useState(null);
-  const [carregando, setCarregando] = useState(true);
+  const [dados,        setDados]        = useState(null);
+  const [carregando,   setCarregando]   = useState(true);
   const [filtroStatus, setFiltroStatus] = useState('');
-  const [busca, setBusca] = useState('');
+  const [busca,        setBusca]        = useState('');
 
   useEffect(() => {
-    relatoriosService.efetivo()
-      .then(setDados)
-      .finally(() => setCarregando(false));
+    relatoriosService.efetivo().then(setDados).finally(() => setCarregando(false));
   }, []);
 
   if (carregando) {
-    return <div className="flex items-center justify-center h-48 text-gray-400 text-sm">Carregando…</div>;
+    return <div className={styles.chartEmpty}>Carregando…</div>;
   }
 
   const { soldados = [], resumo = {} } = dados ?? {};
-  const porStatus = resumo.por_status ?? {};
+  const porStatus = resumo.por_status    ?? {};
   const porGrad   = resumo.por_graduacao ?? {};
 
   const filtrados = soldados.filter((s) => {
@@ -419,97 +381,80 @@ function AbaEfetivo() {
   });
 
   return (
-    <div className="space-y-4">
-      {/* Cards de status */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {STATUS_ORDER.map((st) => {
-          const cfg = STATUS_CARD_CLS[st];
-          return (
-            <button
-              key={st}
-              onClick={() => setFiltroStatus(filtroStatus === st ? '' : st)}
-              className={`bg-white rounded-xl border-2 shadow-sm p-4 text-center transition-all ${
-                filtroStatus === st ? cfg.border + ' ring-2 ring-offset-1 ring-green-400' : cfg.border
-              }`}
-            >
-              <p className={`text-3xl font-bold ${cfg.num}`}>{porStatus[st] ?? 0}</p>
-              <p className="text-xs text-gray-400 mt-1">{cfg.label}</p>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Cards de graduação */}
-      <div className="grid grid-cols-2 gap-3">
-        {[
-          { key: 'cabo',     label: 'Cabos (ativos)',     cls: 'text-gray-700' },
-          { key: 'atirador', label: 'Atiradores (ativos)', cls: 'text-blue-700' },
-        ].map(({ key, label, cls }) => (
-          <div key={key} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 text-center">
-            <p className={`text-2xl font-bold ${cls}`}>{porGrad[key] ?? 0}</p>
-            <p className="text-xs text-gray-400 mt-1">{label}</p>
-          </div>
+    <div className={styles.stack}>
+      <div className={styles.statusCards}>
+        {STATUS_ORDER.map((st) => (
+          <button
+            key={st}
+            onClick={() => setFiltroStatus(filtroStatus === st ? '' : st)}
+            className={`${styles.statusCard} ${styles[`statusCard--${st}`]} ${filtroStatus === st ? styles['statusCard--selected'] : ''}`}
+          >
+            <p className={`${styles.statusNum} ${styles[`statusNum--${st}`]}`}>{porStatus[st] ?? 0}</p>
+            <p className={styles.statusLabel}>{STATUS_CARD_LABEL[st]}</p>
+          </button>
         ))}
       </div>
 
-      {/* Tabela completa */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-5 py-3 border-b border-gray-100 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-          <h2 className="text-sm font-semibold text-gray-700">
-            Efetivo completo
-            {filtroStatus && ` — ${labelStatus(filtroStatus)}`}
+      <div className={styles.gradCards}>
+        <div className={styles.gradCard}>
+          <p className={`${styles.gradNum} ${styles.gradGray}`}>{porGrad.cabo ?? 0}</p>
+          <p className={styles.gradLabel}>Cabos (ativos)</p>
+        </div>
+        <div className={styles.gradCard}>
+          <p className={`${styles.gradNum} ${styles.gradBlue}`}>{porGrad.atirador ?? 0}</p>
+          <p className={styles.gradLabel}>Atiradores (ativos)</p>
+        </div>
+      </div>
+
+      <div className={styles.tableCard}>
+        <div className={styles.efTableHeader}>
+          <h2 className={styles.tableCardTitle}>
+            Efetivo completo{filtroStatus && ` — ${STATUS_LABEL[filtroStatus]}`}
           </h2>
-          <div className="flex gap-2">
+          <div className={styles.efSearchRow}>
             <input
               type="text"
               placeholder="Buscar nome ou RA…"
-              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 w-48"
+              className={styles.efSearchInput}
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
             />
             {filtroStatus && (
-              <button
-                onClick={() => setFiltroStatus('')}
-                className="text-xs text-gray-500 hover:text-gray-700 px-2"
-              >
+              <button onClick={() => setFiltroStatus('')} className={styles.clearFilterBtn}>
                 Limpar filtro
               </button>
             )}
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50">
-              <tr className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-left">
-                <th className="px-5 py-3">Nome</th>
-                <th className="px-5 py-3">RA</th>
-                <th className="px-5 py-3">Graduação</th>
-                <th className="px-5 py-3">Pelotão</th>
-                <th className="px-5 py-3">Turma</th>
-                <th className="px-5 py-3 text-center">Guardas</th>
-                <th className="px-5 py-3">Situação</th>
+        <div className={styles.tableScrollWrap}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>RA</th>
+                <th>Graduação</th>
+                <th>Pelotão</th>
+                <th>Turma</th>
+                <th className={styles.centered}>Guardas</th>
+                <th>Situação</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody>
               {filtrados.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-6 text-center text-sm text-gray-400">
-                    Nenhum soldado encontrado.
-                  </td>
+                  <td colSpan={7} className={styles.emptyTable}>Nenhum soldado encontrado.</td>
                 </tr>
               ) : filtrados.map((s) => (
-                <tr key={s.id} className="hover:bg-gray-50">
-                  <td className="px-5 py-3 font-medium text-gray-800">{s.nome_completo}</td>
-                  <td className="px-5 py-3 text-gray-500 font-mono text-xs">{s.ra}</td>
-                  <td className="px-5 py-3 text-gray-600 capitalize">
-                    {s.graduacao === 'cabo' ? 'Cabo' : 'Atirador'}
-                  </td>
-                  <td className="px-5 py-3 text-gray-600">{s.pelotao || '—'}</td>
-                  <td className="px-5 py-3 text-gray-600">{s.turma   || '—'}</td>
-                  <td className="px-5 py-3 text-center text-gray-500">{s.guardas_concluidas ?? 0}</td>
-                  <td className="px-5 py-3">
-                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${badgeStatus(s.status)}`}>
-                      {labelStatus(s.status)}
+                <tr key={s.id}>
+                  <td>{s.nome_completo}</td>
+                  <td className={styles.monoCell}>{s.ra}</td>
+                  <td>{s.graduacao === 'cabo' ? 'Cabo' : 'Atirador'}</td>
+                  <td>{s.pelotao || '—'}</td>
+                  <td>{s.turma   || '—'}</td>
+                  <td className={styles.centered}>{s.guardas_concluidas ?? 0}</td>
+                  <td>
+                    <span className={styles.statusBadge} style={STATUS_BADGE_STYLE[s.status]}>
+                      {STATUS_LABEL[s.status] ?? s.status}
                     </span>
                   </td>
                 </tr>
@@ -517,7 +462,7 @@ function AbaEfetivo() {
             </tbody>
           </table>
         </div>
-        <div className="px-5 py-2 border-t border-gray-100 text-xs text-gray-400">
+        <div className={styles.tableFooter}>
           {filtrados.length} de {soldados.length} soldado(s)
         </div>
       </div>
@@ -528,9 +473,9 @@ function AbaEfetivo() {
 // ── Página principal ──────────────────────────────────────────────────────────
 
 const ABAS = [
-  { key: 'presenca',  label: 'Presença' },
-  { key: 'evolucao',  label: 'Evolução de Treinos' },
-  { key: 'efetivo',   label: 'Efetivo' },
+  { key: 'presenca', label: 'Presença' },
+  { key: 'evolucao', label: 'Evolução de Treinos' },
+  { key: 'efetivo',  label: 'Efetivo' },
 ];
 
 export default function Relatorios() {
@@ -538,19 +483,14 @@ export default function Relatorios() {
 
   return (
     <Layout>
-      <h1 className="text-xl font-bold text-gray-800 mb-5">Relatórios</h1>
+      <h1 className={styles.pageTitle}>Relatórios</h1>
 
-      {/* Abas */}
-      <div className="flex gap-1 mb-5 border-b border-gray-200">
+      <div className={styles.tabs}>
         {ABAS.map(({ key, label }) => (
           <button
             key={key}
             onClick={() => setAba(key)}
-            className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors ${
-              aba === key
-                ? 'border-b-2 border-green-600 text-green-700 bg-white -mb-px'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-            }`}
+            className={`${styles.tab} ${aba === key ? styles['tab--active'] : ''}`}
           >
             {label}
           </button>

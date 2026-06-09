@@ -63,4 +63,19 @@ function contarComandantesAtivos() {
   ).get().total;
 }
 
-module.exports = { listar, buscarPorId, loginExiste, criar, atualizar, desativar, reativar, contarComandantesAtivos };
+// Retorna o registro completo (inclui senha_hash) — uso interno em login/troca de senha.
+function buscarComSenha(id) {
+  return getDb().prepare(`SELECT * FROM usuarios WHERE id = ? AND ativo = 1`).get(id);
+}
+
+// Define uma nova senha e limpa a flag de troca obrigatória.
+function trocarSenha(id, senhaHash) {
+  getDb().prepare(
+    `UPDATE usuarios SET senha_hash = ?, precisa_trocar_senha = 0 WHERE id = ?`
+  ).run(senhaHash, id);
+}
+
+module.exports = {
+  listar, buscarPorId, loginExiste, criar, atualizar, desativar, reativar,
+  contarComandantesAtivos, buscarComSenha, trocarSenha,
+};

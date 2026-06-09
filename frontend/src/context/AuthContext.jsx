@@ -42,8 +42,19 @@ export function AuthProvider({ children }) {
     setUsuario(null);
   }, []);
 
+  const trocarSenha = useCallback(async (senhaAtual, novaSenha) => {
+    const { data } = await api.post('/auth/trocar-senha', {
+      senha_atual: senhaAtual,
+      nova_senha: novaSenha,
+    });
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('usuario', JSON.stringify(data.usuario));
+    setUsuario(data.usuario);
+    return data.usuario;
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ usuario, carregando, login, logout }}>
+    <AuthContext.Provider value={{ usuario, carregando, login, logout, trocarSenha }}>
       {children}
     </AuthContext.Provider>
   );

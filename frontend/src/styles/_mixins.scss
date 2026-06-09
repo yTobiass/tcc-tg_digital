@@ -1,0 +1,247 @@
+@use 'variables' as v;
+
+// ── Responsive ────────────────────────────────────────────────────────────────
+@mixin sm { @media (min-width: v.$bp-sm) { @content; } }
+@mixin md { @media (min-width: v.$bp-md) { @content; } }
+@mixin lg { @media (min-width: v.$bp-lg) { @content; } }
+@mixin xl { @media (min-width: v.$bp-xl) { @content; } }
+
+// ── Layout helpers ────────────────────────────────────────────────────────────
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@mixin flex-wrap-between {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+// ── Card ──────────────────────────────────────────────────────────────────────
+@mixin card {
+  background: #fff;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--clr-gray-200);
+  box-shadow: var(--shadow-sm);
+}
+
+@mixin card-padded {
+  @include card;
+  padding: 20px;
+}
+
+// ── Form controls ─────────────────────────────────────────────────────────────
+@mixin input {
+  width: 100%;
+  border: 1px solid var(--clr-gray-300);
+  border-radius: var(--radius-lg);
+  padding: 8px 12px;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--clr-gray-800);
+  background: #fff;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+
+  &:focus {
+    outline: none;
+    border-color: var(--clr-primary-600);
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.12);
+  }
+
+  &:disabled {
+    background: var(--clr-gray-50);
+    color: var(--clr-gray-400);
+    cursor: not-allowed;
+  }
+
+  &::placeholder { color: var(--clr-gray-400); }
+}
+
+@mixin input-sm {
+  @include input;
+  padding: 6px 12px;
+  font-size: var(--fs-xs);
+}
+
+// ── Buttons ───────────────────────────────────────────────────────────────────
+@mixin btn-base {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  border-radius: var(--radius-lg);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), opacity var(--transition-fast);
+  white-space: nowrap;
+
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+}
+
+@mixin btn-primary {
+  @include btn-base;
+  padding: 8px 20px;
+  background: var(--clr-primary-700);
+  color: #fff;
+
+  &:hover:not(:disabled) { background: var(--clr-primary-800); }
+}
+
+@mixin btn-secondary {
+  @include btn-base;
+  padding: 8px 16px;
+  background: #fff;
+  border: 1px solid var(--clr-gray-300);
+  color: var(--clr-gray-700);
+
+  &:hover:not(:disabled) { background: var(--clr-gray-50); }
+}
+
+@mixin btn-ghost {
+  @include btn-base;
+  padding: 4px 8px;
+  background: transparent;
+  color: var(--clr-gray-500);
+
+  &:hover:not(:disabled) { color: var(--clr-gray-700); }
+}
+
+@mixin btn-danger {
+  @include btn-base;
+  padding: 8px 20px;
+  background: var(--clr-red-600);
+  color: #fff;
+
+  &:hover:not(:disabled) { background: var(--clr-red-700); }
+}
+
+// ── Tables ────────────────────────────────────────────────────────────────────
+@mixin table-base {
+  width: 100%;
+  font-size: var(--fs-sm);
+  border-collapse: collapse;
+}
+
+@mixin table-head {
+  background: var(--clr-gray-50);
+  border-bottom: 1px solid var(--clr-gray-200);
+
+  th {
+    padding: 12px 16px;
+    text-align: left;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--clr-gray-500);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+}
+
+@mixin table-body {
+  tr {
+    border-bottom: 1px solid var(--clr-gray-100);
+    transition: background-color var(--transition-fast);
+
+    &:hover { background: var(--clr-gray-50); }
+  }
+
+  td { padding: 12px 16px; }
+}
+
+// ── Badges ────────────────────────────────────────────────────────────────────
+@mixin badge-base {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+@mixin tab-bar {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--clr-gray-200);
+  margin-bottom: 24px;
+}
+
+@mixin tab-btn {
+  padding: 8px 16px;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--clr-gray-500);
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+  margin-bottom: -1px;
+
+  &:hover { color: var(--clr-gray-700); }
+
+  &--active {
+    border-bottom-color: var(--clr-primary-700);
+    color: var(--clr-primary-700);
+  }
+}
+
+// ── Filter bar ────────────────────────────────────────────────────────────────
+@mixin filter-bar {
+  @include card;
+  padding: 12px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+// ── Page header ───────────────────────────────────────────────────────────────
+@mixin page-header {
+  @include flex-wrap-between;
+  margin-bottom: 24px;
+}
+
+// ── Skeleton loading ──────────────────────────────────────────────────────────
+@mixin skeleton {
+  background: var(--clr-gray-100);
+  border-radius: var(--radius-lg);
+  animation: skeleton-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+// ── Empty / loading state ─────────────────────────────────────────────────────
+@mixin empty-state {
+  padding: 48px 20px;
+  text-align: center;
+  color: var(--clr-gray-400);
+  font-size: var(--fs-sm);
+}
+
+// ── Alert banners ─────────────────────────────────────────────────────────────
+@mixin alert($bg, $border, $color) {
+  background: $bg;
+  border: 1px solid $border;
+  color: $color;
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  font-size: var(--fs-sm);
+}

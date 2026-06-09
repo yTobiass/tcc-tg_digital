@@ -13,6 +13,7 @@ router.post('/importar', auth, roles('comandante', 'sargento'), upload.single('a
 
 router.get('/', auth, c.listar);
 router.get('/:id', auth, c.buscarPorId);
+router.get('/:id/guardas', auth, c.guardas);
 router.post('/', auth, roles('comandante', 'sargento'), c.criar);
 router.put('/:id', auth, roles('comandante', 'sargento'), c.atualizar);
 

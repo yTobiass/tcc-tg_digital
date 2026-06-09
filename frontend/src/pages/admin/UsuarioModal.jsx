@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Modal }           from '../../components/ui/Modal';
 import { InfoTooltip }     from '../../components/ui/Tooltip';
 import { usuariosService } from '../../services/usuariosService';
 import { soldadosService } from '../../services/soldadosService';
+import styles from './UsuarioModal.module.scss';
 
 const ROLES = [
   { value: 'comandante', label: 'Comandante' },
@@ -10,14 +11,12 @@ const ROLES = [
   { value: 'soldado',    label: 'Soldado' },
 ];
 
-const INPUT_CLS = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-50';
-
 function Campo({ label, children, dica }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-gray-600 mb-1">{label}</label>
+      <label className={styles.label}>{label}</label>
       {children}
-      {dica && <p className="text-xs text-gray-400 mt-0.5">{dica}</p>}
+      {dica && <p className={styles.hint}>{dica}</p>}
     </div>
   );
 }
@@ -25,22 +24,19 @@ function Campo({ label, children, dica }) {
 export default function UsuarioModal({ usuario, onFechar, onSalvo }) {
   const editando = !!usuario;
 
-  const [nome,      setNome]      = useState(usuario?.nome      ?? '');
-  const [login,     setLogin]     = useState(usuario?.login     ?? '');
+  const [nome,      setNome]      = useState(usuario?.nome       ?? '');
+  const [login,     setLogin]     = useState(usuario?.login      ?? '');
   const [senha,     setSenha]     = useState('');
-  const [role,      setRole]      = useState(usuario?.role      ?? 'sargento');
+  const [role,      setRole]      = useState(usuario?.role       ?? 'sargento');
   const [soldadoId, setSoldadoId] = useState(usuario?.soldado_id ?? '');
   const [soldados,  setSoldados]  = useState([]);
   const [salvando,  setSalvando]  = useState(false);
   const [erro,      setErro]      = useState(null);
 
   useEffect(() => {
-    soldadosService.listar({ status: 'ativo' })
-      .then(setSoldados)
-      .catch(() => {});
+    soldadosService.listar({ status: 'ativo' }).then(setSoldados).catch(() => {});
   }, []);
 
-  // Limpa vínculo ao mudar para role != soldado
   useEffect(() => {
     if (role !== 'soldado') setSoldadoId('');
   }, [role]);
@@ -80,7 +76,7 @@ export default function UsuarioModal({ usuario, onFechar, onSalvo }) {
 
       onSalvo(salvo);
     } catch (e) {
-      const msg = e?.response?.data?.erro;
+      const msg = e?.response?.data?.error;
       setErro(typeof msg === 'string' ? msg : 'Erro ao salvar usuário.');
     } finally {
       setSalvando(false);
@@ -88,67 +84,46 @@ export default function UsuarioModal({ usuario, onFechar, onSalvo }) {
   }
 
   return (
-    <Modal
-      aberto
-      titulo={editando ? 'Editar Usuário' : 'Novo Usuário'}
-      onFechar={onFechar}
-      largura="max-w-md"
-    >
-      <div className="space-y-4">
+    <Modal aberto titulo={editando ? 'Editar Usuário' : 'Novo Usuário'} onFechar={onFechar} largura="max-w-md">
+      <div className={styles.stack}>
         <Campo label="Nome completo">
-          <input
-            type="text"
-            className={INPUT_CLS}
-            value={nome}
+          <input type="text" className={styles.input} value={nome}
             onChange={(e) => setNome(e.target.value)}
-            placeholder="Nome do usuário"
-            maxLength={100}
-          />
+            placeholder="Nome do usuário" maxLength={100} />
         </Campo>
 
         <Campo label="Login">
-          <input
-            type="text"
-            className={INPUT_CLS}
-            value={login}
+          <input type="text" className={styles.input} value={login}
             onChange={(e) => setLogin(e.target.value.trim())}
-            placeholder="Login de acesso"
-            maxLength={50}
-            autoComplete="off"
-          />
+            placeholder="Login de acesso" maxLength={50} autoComplete="off" />
         </Campo>
 
         <Campo
           label={editando ? 'Nova senha (opcional)' : 'Senha'}
           dica={editando ? 'Deixe em branco para manter a senha atual.' : 'Mínimo 6 caracteres.'}
         >
-          <input
-            type="password"
-            className={INPUT_CLS}
-            value={senha}
+          <input type="password" className={styles.input} value={senha}
             onChange={(e) => setSenha(e.target.value)}
             placeholder={editando ? '••••••' : 'Mínimo 6 caracteres'}
-            autoComplete="new-password"
-          />
+            autoComplete="new-password" />
         </Campo>
 
         <Campo label={
-          <span className="flex items-center">
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             Perfil de acesso
-            <InfoTooltip text="Comandante: acesso total + admin. Sargento: operacional (sem admin). Soldado: apenas próprio perfil e escalas." position="right" />
+            <InfoTooltip
+              text="Comandante: acesso total + admin. Sargento: operacional (sem admin). Soldado: apenas próprio perfil e escalas."
+              position="right"
+            />
           </span>
         }>
-          <div className="flex gap-2">
+          <div className={styles.roleBtns}>
             {ROLES.map(({ value, label }) => (
               <button
                 key={value}
                 type="button"
                 onClick={() => setRole(value)}
-                className={`flex-1 py-2 text-sm font-semibold rounded-lg border-2 transition-colors ${
-                  role === value
-                    ? 'border-green-500 bg-green-50 text-green-800'
-                    : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                }`}
+                className={`${styles.roleBtn} ${role === value ? styles['roleBtn--active'] : ''}`}
               >
                 {label}
               </button>
@@ -158,37 +133,21 @@ export default function UsuarioModal({ usuario, onFechar, onSalvo }) {
 
         {role === 'soldado' && (
           <Campo label="Soldado vinculado" dica="O soldado poderá acessar seu próprio perfil com este login.">
-            <select
-              className={INPUT_CLS}
-              value={soldadoId}
-              onChange={(e) => setSoldadoId(e.target.value)}
-            >
+            <select className={styles.select} value={soldadoId}
+              onChange={(e) => setSoldadoId(e.target.value)}>
               <option value="">Selecione o soldado…</option>
               {soldados.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.nome_completo} — {s.ra}
-                </option>
+                <option key={s.id} value={s.id}>{s.nome_completo} — {s.ra}</option>
               ))}
             </select>
           </Campo>
         )}
 
-        {erro && <p className="text-sm text-red-600">{erro}</p>}
+        {erro && <p className={styles.error}>{erro}</p>}
 
-        <div className="flex justify-end gap-2 pt-1">
-          <button
-            type="button"
-            onClick={onFechar}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={salvar}
-            disabled={salvando}
-            className="px-5 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"
-          >
+        <div className={styles.footer}>
+          <button type="button" onClick={onFechar} className={styles.cancelBtn}>Cancelar</button>
+          <button type="button" onClick={salvar} disabled={salvando} className={styles.saveBtn}>
             {salvando ? 'Salvando…' : editando ? 'Salvar alterações' : 'Criar usuário'}
           </button>
         </div>

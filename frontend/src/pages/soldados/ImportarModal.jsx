@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Modal } from '../../components/ui/Modal';
 import { soldadosService } from '../../services/soldadosService';
+import styles from './ImportarModal.module.scss';
 
 export function ImportarModal({ onImportado, onFechar }) {
   const inputRef = useRef(null);
@@ -45,57 +46,47 @@ export function ImportarModal({ onImportado, onFechar }) {
 
   return (
     <Modal aberto onFechar={onFechar} titulo="Importar Soldados">
-      <div className="space-y-4">
-        {/* Modelo */}
-        <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 flex items-center justify-between">
+      <div className={styles.stack}>
+        <div className={styles.modeloBar}>
           <div>
-            <p className="text-sm font-medium text-gray-700">Modelo de planilha</p>
-            <p className="text-xs text-gray-500 mt-0.5">Preencha e importe para cadastrar em lote.</p>
+            <p className={styles.modeloTitle}>Modelo de planilha</p>
+            <p className={styles.modeloDesc}>Preencha e importe para cadastrar em lote.</p>
           </div>
-          <button
-            onClick={handleBaixarModelo}
-            disabled={baixando}
-            className="text-sm text-green-700 hover:text-green-900 font-medium disabled:opacity-60"
-          >
+          <button onClick={handleBaixarModelo} disabled={baixando} className={styles.downloadBtn}>
             {baixando ? 'Baixando...' : 'Baixar modelo'}
           </button>
         </div>
 
-        {/* Upload */}
         <div>
-          <p className="text-sm font-medium text-gray-700 mb-2">Arquivo (.xlsx ou .csv)</p>
-          <div
-            className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-green-500 transition-colors"
-            onClick={() => inputRef.current?.click()}
-          >
+          <p className={styles.uploadLabel}>Arquivo (.xlsx ou .csv)</p>
+          <div className={styles.dropZone} onClick={() => inputRef.current?.click()}>
             {arquivo ? (
-              <p className="text-sm text-gray-700 font-medium">{arquivo.name}</p>
+              <p className={styles.dropFile}>{arquivo.name}</p>
             ) : (
-              <p className="text-sm text-gray-400">Clique para selecionar o arquivo</p>
+              <p className={styles.dropText}>Clique para selecionar o arquivo</p>
             )}
             <input
               ref={inputRef}
               type="file"
               accept=".xlsx,.xls,.csv"
-              className="hidden"
+              style={{ display: 'none' }}
               onChange={handleArquivo}
             />
           </div>
         </div>
 
-        {/* Resultado */}
         {resultado && (
-          <div className={`rounded-lg px-4 py-3 text-sm ${resultado.importados > 0 ? 'bg-green-50 border border-green-200' : 'bg-yellow-50 border border-yellow-200'}`}>
+          <div className={resultado.importados > 0 ? styles.resultSuccess : styles.resultWarn}>
             {resultado.importados > 0 && (
-              <p className="font-medium text-green-800">
+              <p className={styles.resultTitle}>
                 {resultado.importados} soldado{resultado.importados !== 1 ? 's' : ''} importado{resultado.importados !== 1 ? 's' : ''} com sucesso.
               </p>
             )}
             {resultado.erros?.length > 0 && (
-              <div className="mt-2">
-                <p className="font-medium text-yellow-800">{resultado.erros.length} linha{resultado.erros.length !== 1 ? 's' : ''} com erro:</p>
-                <ul className="mt-1 space-y-0.5 list-disc list-inside text-yellow-700">
-                  {resultado.erros.map((e, i) => <li key={i}>{e}</li>)}
+              <div>
+                <p className={styles.resultTitle}>{resultado.erros.length} linha{resultado.erros.length !== 1 ? 's' : ''} com erro:</p>
+                <ul className={styles.errorList}>
+                  {resultado.erros.map((e, i) => <li key={i} className={styles.errorItem}>{e}</li>)}
                 </ul>
               </div>
             )}
@@ -103,18 +94,18 @@ export function ImportarModal({ onImportado, onFechar }) {
         )}
 
         {erro && !resultado && (
-          <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{erro}</p>
+          <p className={styles.errorMsg}>{erro}</p>
         )}
 
-        <div className="flex justify-end gap-3 pt-2">
-          <button onClick={onFechar} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">
+        <div className={styles.footer}>
+          <button onClick={onFechar} className={styles.cancelBtn}>
             {resultado?.importados > 0 ? 'Fechar' : 'Cancelar'}
           </button>
           {!resultado?.importados && (
             <button
               onClick={handleImportar}
               disabled={!arquivo || enviando}
-              className="px-5 py-2 text-sm font-medium bg-green-700 hover:bg-green-800 disabled:opacity-60 text-white rounded-lg transition-colors"
+              className={styles.importBtn}
             >
               {enviando ? 'Importando...' : 'Importar'}
             </button>

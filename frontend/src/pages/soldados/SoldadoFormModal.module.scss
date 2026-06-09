@@ -1,0 +1,46 @@
+@use 'mixins' as m;
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.colSpan2 { grid-column: span 2; }
+
+.label {
+  display: block;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--clr-gray-600);
+  margin-bottom: 4px;
+}
+
+.input   { @include m.input; }
+.select  { @include m.input; }
+
+.error {
+  @include m.alert(var(--clr-red-50), var(--clr-red-200), var(--clr-red-600));
+  margin-top: 16px;
+  font-size: var(--fs-sm);
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.cancelBtn {
+  padding: 8px 16px;
+  font-size: var(--fs-sm);
+  color: var(--clr-gray-600);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+  &:hover { color: var(--clr-gray-800); }
+}
+
+.saveBtn { @include m.btn-primary; }

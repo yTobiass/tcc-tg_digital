@@ -1,50 +1,116 @@
 const { getDb } = require('../database/db');
 
-// ── Fila de Rotação ──────────────────────────────────────────────────────────
+// ── Filas de Rotação (modelo de 2 filas compartilhadas) ──────────────────────
+// fila_cabos      (tipo_guarda='cabos')      → guardas preta e vermelha
+// fila_atiradores (tipo_guarda='atiradores') → preta, vermelha e verde
+// As posições crescem indefinidamente conforme os soldados são escalados; a
+// fila só é "reiniciada" (renumerada de 1..N) quando todos deram uma volta
+// completa — ver verificarEReiniciarFila.
 
-function _inicializarFilaTipo(db, tipo) {
-  const existem = db.prepare('SELECT COUNT(*) AS c FROM fila_rotacao WHERE tipo_guarda = ?').get(tipo).c;
-  if (existem > 0) return;
+const FILA_DE = { cabo: 'cabos', atirador: 'atiradores' };
+const GRAD_DA_FILA = { cabos: 'cabo', atiradores: 'atirador' };
 
-  const filtroGrad = tipo === 'verde' ? "AND s.graduacao = 'atirador'" : '';
+function _filaVazia(db, filaTipo) {
+  return db.prepare('SELECT COUNT(*) AS c FROM fila_rotacao WHERE tipo_guarda = ?').get(filaTipo).c === 0;
+}
+
+// Inicializa uma fila a partir dos soldados ativos da graduação correspondente,
+// ordenados por data de incorporação (mais antigo primeiro). Idempotente: só
+// preenche se a fila estiver vazia.
+function _inicializarFilaTipo(db, filaTipo) {
+  if (!_filaVazia(db, filaTipo)) return;
+  const graduacao = GRAD_DA_FILA[filaTipo];
   const soldados = db.prepare(`
-    SELECT s.id FROM soldados s
-    WHERE s.status IN ('ativo','licenca') ${filtroGrad}
-    ORDER BY COALESCE(s.data_incorporacao, s.created_at) ASC, s.id ASC
-  `).all();
+    SELECT id FROM soldados
+    WHERE graduacao = ? AND status = 'ativo'
+    ORDER BY COALESCE(data_incorporacao, created_at) ASC, id ASC
+  `).all(graduacao);
 
   const insert = db.prepare(
     'INSERT INTO fila_rotacao (soldado_id, tipo_guarda, posicao) VALUES (?, ?, ?) ON CONFLICT DO NOTHING'
   );
-  soldados.forEach((s, i) => insert.run(s.id, tipo, i + 1));
+  soldados.forEach((s, i) => insert.run(s.id, filaTipo, i + 1));
 }
 
+// Garante que ambas as filas existam (chamada automaticamente nas operações).
 function garantirFilas() {
   const db = getDb();
-  const tx = db.transaction(() => {
-    ['verde', 'preta', 'vermelha'].forEach((t) => _inicializarFilaTipo(db, t));
-  });
-  tx();
+  db.transaction(() => {
+    _inicializarFilaTipo(db, 'cabos');
+    _inicializarFilaTipo(db, 'atiradores');
+  })();
 }
 
-function _renormalizarFila(db, tipo) {
-  const rows = db.prepare('SELECT id FROM fila_rotacao WHERE tipo_guarda = ? ORDER BY posicao ASC').all(tipo);
-  rows.forEach((r, i) => db.prepare('UPDATE fila_rotacao SET posicao = ? WHERE id = ?').run(i + 1, r.id));
+// Inicialização explícita (POST /api/escalas/fila/inicializar). Retorna as filas.
+function inicializarFilas() {
+  garantirFilas();
+  return { cabos: listarFila('cabos'), atiradores: listarFila('atiradores') };
 }
 
-function _moverParaFimFila(db, tipo, soldadoIds) {
-  let maxPos = db.prepare('SELECT COALESCE(MAX(posicao),0) AS m FROM fila_rotacao WHERE tipo_guarda = ?').get(tipo).m;
-  soldadoIds.forEach((sid) => {
-    maxPos += 1;
-    db.prepare('UPDATE fila_rotacao SET posicao = ? WHERE soldado_id = ? AND tipo_guarda = ?').run(maxPos, sid, tipo);
-  });
-  _renormalizarFila(db, tipo);
+// Insere o soldado no fim da fila caso ainda não esteja nela (ex.: soldado que
+// estava em licença na inicialização, ou cadastrado depois).
+function _garantirMembroNaFila(db, filaTipo, soldadoId) {
+  const existe = db.prepare(
+    'SELECT 1 FROM fila_rotacao WHERE soldado_id = ? AND tipo_guarda = ?'
+  ).get(soldadoId, filaTipo);
+  if (existe) return;
+  const maxPos = db.prepare(
+    'SELECT COALESCE(MAX(posicao),0) AS m FROM fila_rotacao WHERE tipo_guarda = ?'
+  ).get(filaTipo).m;
+  db.prepare(
+    'INSERT INTO fila_rotacao (soldado_id, tipo_guarda, posicao) VALUES (?, ?, ?)'
+  ).run(soldadoId, filaTipo, maxPos + 1);
+}
+
+// Avança um soldado para o fim da fila, guardando a posição anterior (para poder
+// desfazer em uma alteração manual) e registrando a última escala.
+function _avancarParaFim(db, filaTipo, soldadoId, escalaId, dataInicio) {
+  _garantirMembroNaFila(db, filaTipo, soldadoId);
+  const atual = db.prepare(
+    'SELECT posicao FROM fila_rotacao WHERE soldado_id = ? AND tipo_guarda = ?'
+  ).get(soldadoId, filaTipo).posicao;
+  const maxPos = db.prepare(
+    'SELECT COALESCE(MAX(posicao),0) AS m FROM fila_rotacao WHERE tipo_guarda = ?'
+  ).get(filaTipo).m;
+  db.prepare(`
+    UPDATE fila_rotacao
+    SET posicao_anterior = ?, posicao = ?, ultima_escala_id = ?, ultima_data = ?
+    WHERE soldado_id = ? AND tipo_guarda = ?
+  `).run(atual, maxPos + 1, escalaId ?? null, dataInicio ?? null, soldadoId, filaTipo);
+}
+
+// Reinicia a fila se todos os soldados ativos já deram uma volta completa
+// (todos com posicao > total de ativos): reordena pelo valor atual de posicao
+// e renumera de 1 a N, preservando a ordem em que terminaram a rodada.
+function verificarEReiniciarFila(filaTipo) {
+  const db = getDb();
+  const ativos = db.prepare(`
+    SELECT f.id FROM fila_rotacao f
+    JOIN soldados s ON s.id = f.soldado_id
+    WHERE f.tipo_guarda = ? AND s.status = 'ativo'
+    ORDER BY f.posicao ASC
+  `).all(filaTipo);
+
+  const total = ativos.length;
+  if (total === 0) return;
+
+  const minima = db.prepare(`
+    SELECT MIN(f.posicao) AS m FROM fila_rotacao f
+    JOIN soldados s ON s.id = f.soldado_id
+    WHERE f.tipo_guarda = ? AND s.status = 'ativo'
+  `).get(filaTipo).m;
+
+  // Se nem o primeiro da fila tem posição <= total, todos já rodaram.
+  if (minima > total) {
+    const upd = db.prepare('UPDATE fila_rotacao SET posicao = ? WHERE id = ?');
+    ativos.forEach((r, i) => upd.run(i + 1, r.id));
+  }
 }
 
 function listarFila(tipo) {
   garantirFilas();
   return getDb().prepare(`
-    SELECT f.posicao, f.ultima_data,
+    SELECT f.posicao, f.posicao_anterior, f.ultima_data,
            s.id AS soldado_id, s.ra, s.nome_completo, s.status, s.graduacao
     FROM fila_rotacao f
     JOIN soldados s ON s.id = f.soldado_id
@@ -53,27 +119,68 @@ function listarFila(tipo) {
   `).all(tipo);
 }
 
-function sugerirMembros(tipo) {
+// ── Disponibilidade / conflitos ──────────────────────────────────────────────
+
+// Soldados ocupados em alguma escala não-cancelada com sobreposição de datas.
+function _soldadosOcupados(db, dataInicio, dataFim, excluirEscalaId = null) {
+  const rows = db.prepare(`
+    SELECT DISTINCT em.soldado_id
+    FROM escala_membros em
+    JOIN escalas_guarda e ON e.id = em.escala_id
+    WHERE e.status != 'cancelada'
+      AND e.data_inicio <= ? AND e.data_fim >= ?
+      AND (? IS NULL OR e.id != ?)
+  `).all(dataFim, dataInicio, excluirEscalaId, excluirEscalaId);
+  return new Set(rows.map((r) => r.soldado_id));
+}
+
+// Atiradores presos em uma guarda PRETA que cobre data_inicio OU data_fim da
+// verde (restrição específica verde × preta).
+function _atiradoresEmPretaCobrindo(db, dataInicio, dataFim) {
+  const rows = db.prepare(`
+    SELECT DISTINCT em.soldado_id
+    FROM escala_membros em
+    JOIN escalas_guarda e ON e.id = em.escala_id
+    WHERE e.tipo = 'preta' AND e.status != 'cancelada'
+      AND ( (e.data_inicio <= ? AND e.data_fim >= ?)
+         OR (e.data_inicio <= ? AND e.data_fim >= ?) )
+  `).all(dataInicio, dataInicio, dataFim, dataFim);
+  return new Set(rows.map((r) => r.soldado_id));
+}
+
+// ── Sugestão automática ──────────────────────────────────────────────────────
+
+function sugerirMembros(tipo, dataInicio, dataFim) {
   garantirFilas();
   const db = getDb();
+  const ocupados = _soldadosOcupados(db, dataInicio, dataFim);
 
-  function proxElegiveis(graduacao, limite) {
-    return db.prepare(`
+  // Próximos da fila, na ordem de posição, pulando indisponíveis.
+  function proximos(filaTipo, graduacao, limite, excluir) {
+    const fila = db.prepare(`
       SELECT s.id AS soldado_id, s.ra, s.nome_completo, s.graduacao, f.posicao
       FROM fila_rotacao f
       JOIN soldados s ON s.id = f.soldado_id
       WHERE f.tipo_guarda = ? AND s.status = 'ativo' AND s.graduacao = ?
       ORDER BY f.posicao ASC
-      LIMIT ?
-    `).all(tipo, graduacao, limite);
+    `).all(filaTipo, graduacao);
+    return fila.filter((c) => !excluir.has(c.soldado_id)).slice(0, limite);
   }
 
-  if (tipo === 'verde') return { cabo: null, atiradores: proxElegiveis('atirador', 1) };
-  return { cabo: proxElegiveis('cabo', 1)[0] ?? null, atiradores: proxElegiveis('atirador', 3) };
+  if (tipo === 'verde') {
+    const bloqueadosPreta = _atiradoresEmPretaCobrindo(db, dataInicio, dataFim);
+    const excluir = new Set([...ocupados, ...bloqueadosPreta]);
+    return { cabo: null, atiradores: proximos('atiradores', 'atirador', 1, excluir) };
+  }
+
+  // preta / vermelha
+  return {
+    cabo: proximos('cabos', 'cabo', 1, ocupados)[0] ?? null,
+    atiradores: proximos('atiradores', 'atirador', 3, ocupados),
+  };
 }
 
 function listarSoldadosElegiveis(tipo) {
-  // Todos os soldados ativos com a graduação correta para o tipo
   const db = getDb();
   const filtro = tipo === 'verde' ? "AND graduacao = 'atirador'" : '';
   return db.prepare(`
@@ -83,21 +190,28 @@ function listarSoldadosElegiveis(tipo) {
   `).all();
 }
 
-function reordenarFila(tipo, soldadoId, acao) {
+// Reordenação manual da fila (punição / adiamento). Opera sobre a fila
+// cabos|atiradores. Não mexe em posicao_anterior (isso é exclusivo do fluxo de
+// confirmação/troca de escala).
+function reordenarFila(filaTipo, soldadoId, acao) {
   const db = getDb();
   garantirFilas();
-  const tx = db.transaction(() => {
+  db.transaction(() => {
     if (acao === 'inicio') {
-      // Punição: mover para posição 1 (faz a guarda mais cedo)
-      db.prepare('UPDATE fila_rotacao SET posicao = 0 WHERE soldado_id = ? AND tipo_guarda = ?').run(soldadoId, tipo);
-      _renormalizarFila(db, tipo);
+      const min = db.prepare(
+        'SELECT COALESCE(MIN(posicao),1) AS m FROM fila_rotacao WHERE tipo_guarda = ?'
+      ).get(filaTipo).m;
+      db.prepare('UPDATE fila_rotacao SET posicao = ? WHERE soldado_id = ? AND tipo_guarda = ?')
+        .run(min - 1, soldadoId, filaTipo);
     } else {
-      // Adiamento: mover para o fim
-      _moverParaFimFila(db, tipo, [soldadoId]);
+      const max = db.prepare(
+        'SELECT COALESCE(MAX(posicao),0) AS m FROM fila_rotacao WHERE tipo_guarda = ?'
+      ).get(filaTipo).m;
+      db.prepare('UPDATE fila_rotacao SET posicao = ? WHERE soldado_id = ? AND tipo_guarda = ?')
+        .run(max + 1, soldadoId, filaTipo);
     }
-  });
-  tx();
-  return listarFila(tipo);
+  })();
+  return listarFila(filaTipo);
 }
 
 // ── Escalas CRUD ─────────────────────────────────────────────────────────────
@@ -139,6 +253,8 @@ function buscarEscala(id) {
   return e;
 }
 
+// Confirmação de escala: grava a escala e seus membros, avança cada membro para
+// o fim da fila correspondente (cabos|atiradores) e verifica reinício das filas.
 function criarEscala({ tipo, data_inicio, data_fim, observacoes, membros, criado_por }) {
   const db = getDb();
   garantirFilas();
@@ -151,22 +267,16 @@ function criarEscala({ tipo, data_inicio, data_fim, observacoes, membros, criado
 
     const id = r.lastInsertRowid;
     const ins = db.prepare('INSERT INTO escala_membros (escala_id, soldado_id, funcao) VALUES (?, ?, ?)');
-    for (const m of membros) ins.run(id, m.soldado_id, m.funcao);
-
-    // Move membros para o fim da fila
-    const soldadoIds = membros.map((m) => m.soldado_id);
-    _moverParaFimFila(db, tipo, soldadoIds);
-
-    // Registra ultima escala na fila
-    for (const sid of soldadoIds) {
-      db.prepare(`
-        UPDATE fila_rotacao SET ultima_escala_id = ?, ultima_data = ?
-        WHERE soldado_id = ? AND tipo_guarda = ?
-      `).run(id, data_inicio, sid, tipo);
+    for (const m of membros) {
+      ins.run(id, m.soldado_id, m.funcao);
+      _avancarParaFim(db, FILA_DE[m.funcao], m.soldado_id, id, data_inicio);
     }
-
     return id;
   })();
+
+  // Reinício avaliado após o commit lógico das movimentações.
+  verificarEReiniciarFila('cabos');
+  verificarEReiniciarFila('atiradores');
 
   return buscarEscala(escalaId);
 }
@@ -182,6 +292,58 @@ function atualizarEscala(id, { data_inicio, data_fim, observacoes, membros }) {
     for (const m of membros) ins.run(id, m.soldado_id, m.funcao);
   }
   return buscarEscala(id);
+}
+
+// Alteração manual: troca um membro já escalado por outro. O removido volta para
+// a posição que tinha antes de ser escalado (desfaz o avanço); o novo vai para o
+// fim da fila e recebe o motivo da repetição.
+function alterarMembro(escalaId, soldadoRemovidoId, soldadoNovoId, motivo) {
+  const db = getDb();
+  return db.transaction(() => {
+    const escala = db.prepare('SELECT data_inicio FROM escalas_guarda WHERE id = ?').get(escalaId);
+    if (!escala) return { erro: 'Escala não encontrada.' };
+
+    const membro = db.prepare(
+      'SELECT funcao FROM escala_membros WHERE escala_id = ? AND soldado_id = ?'
+    ).get(escalaId, soldadoRemovidoId);
+    if (!membro) return { erro: 'Soldado removido não pertence a esta escala.' };
+
+    const jaPresente = db.prepare(
+      'SELECT 1 FROM escala_membros WHERE escala_id = ? AND soldado_id = ?'
+    ).get(escalaId, soldadoNovoId);
+    if (jaPresente) return { erro: 'O soldado novo já está nesta escala.' };
+
+    const novo = db.prepare('SELECT graduacao FROM soldados WHERE id = ?').get(soldadoNovoId);
+    if (!novo) return { erro: 'Soldado novo não encontrado.' };
+    if (novo.graduacao !== membro.funcao) {
+      return { erro: `A função exige um ${membro.funcao}, mas o soldado escolhido é ${novo.graduacao}.` };
+    }
+
+    const filaTipo = FILA_DE[membro.funcao];
+
+    // 1. Remove o membro antigo.
+    db.prepare('DELETE FROM escala_membros WHERE escala_id = ? AND soldado_id = ?')
+      .run(escalaId, soldadoRemovidoId);
+
+    // 2. Devolve o removido à posição anterior (desfaz o avanço).
+    const ant = db.prepare(
+      'SELECT posicao_anterior FROM fila_rotacao WHERE soldado_id = ? AND tipo_guarda = ?'
+    ).get(soldadoRemovidoId, filaTipo);
+    if (ant && ant.posicao_anterior != null) {
+      db.prepare('UPDATE fila_rotacao SET posicao = ? WHERE soldado_id = ? AND tipo_guarda = ?')
+        .run(ant.posicao_anterior, soldadoRemovidoId, filaTipo);
+    }
+
+    // 3. Insere o novo membro (mesma função) com o motivo.
+    db.prepare(
+      'INSERT INTO escala_membros (escala_id, soldado_id, funcao, motivo_repeticao) VALUES (?, ?, ?, ?)'
+    ).run(escalaId, soldadoNovoId, membro.funcao, motivo ?? null);
+
+    // 4. Avança o novo para o fim da fila.
+    _avancarParaFim(db, filaTipo, soldadoNovoId, escalaId, escala.data_inicio);
+
+    return { ok: true };
+  })();
 }
 
 function alterarStatus(id, status) {
@@ -254,8 +416,9 @@ function removerBloqueio(id) {
 }
 
 module.exports = {
-  garantirFilas, listarFila, sugerirMembros, listarSoldadosElegiveis, reordenarFila,
-  listarEscalas, buscarEscala, criarEscala, atualizarEscala, alterarStatus, removerEscala,
-  historicoPorSoldado, calendario,
+  garantirFilas, inicializarFilas, listarFila, sugerirMembros, listarSoldadosElegiveis,
+  reordenarFila, verificarEReiniciarFila,
+  listarEscalas, buscarEscala, criarEscala, atualizarEscala, alterarMembro,
+  alterarStatus, removerEscala, historicoPorSoldado, calendario,
   estaBloequeado, listarBloqueios, criarBloqueio, removerBloqueio,
 };

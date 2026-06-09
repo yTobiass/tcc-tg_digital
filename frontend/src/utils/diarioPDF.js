@@ -27,6 +27,15 @@ function uc(str) {
   return (str || '').toUpperCase();
 }
 
+// Nome de guerra: "SOBRENOME, Nome" → SOBRENOME; "Nome Sobrenome" → SOBRENOME.
+function nomeGuerra(nomeCompleto = '') {
+  const nome = (nomeCompleto || '').trim();
+  if (!nome) return '';
+  if (nome.includes(',')) return nome.split(',')[0].trim().toUpperCase();
+  const partes = nome.split(/\s+/);
+  return partes[partes.length - 1].toUpperCase();
+}
+
 // Escreve texto com negrito apenas para o prefixo do item
 function itemBold(doc, numero, resto, x, y, maxW, lh) {
   doc.setFont('helvetica', 'bold');
@@ -94,7 +103,7 @@ export function gerarPdfDiario(diario) {
   y += LH;
 
   const caboRa    = diario.cabo_ra    || '___-___';
-  const caboGrr   = uc(diario.cabo_nome ? diario.cabo_nome.split(' ').pop() : '') || '________________';
+  const caboGrr   = nomeGuerra(diario.cabo_nome) || '________________';
   doc.text(`    a) CMT GD: MONITOR N° ${caboRa} – ${caboGrr}.`, ML, y);
   y += LH;
 
@@ -104,7 +113,7 @@ export function gerarPdfDiario(diario) {
   for (let i = 0; i < 3; i++) {
     const at  = ats[i];
     const ra  = at?.ra || '___-___';
-    const grr = uc(at?.nomeGuerra || at?.nome?.split(' ').pop()) || '________________';
+    const grr = uc(at?.nomeGuerra) || nomeGuerra(at?.nome) || '________________';
     doc.text(`${i === 0 ? prefAt : prefVaz}ATIRADOR N° ${ra} – ${grr}.`, ML, y);
     y += LH;
   }

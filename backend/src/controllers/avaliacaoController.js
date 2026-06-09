@@ -1,4 +1,4 @@
-const { z } = require('zod');
+﻿const { z } = require('zod');
 const model = require('../models/avaliacaoModel');
 
 const schema = z.object({
@@ -18,27 +18,27 @@ function listar(req, res) {
 
 function criar(req, res) {
   const result = schema.safeParse(req.body);
-  if (!result.success) return res.status(400).json({ erro: result.error.issues });
+  if (!result.success) return res.status(400).json({ error: result.error.issues });
   try {
     const avaliacao = model.criar(result.data);
     return res.status(201).json(avaliacao);
   } catch (e) {
-    return res.status(500).json({ erro: e.message });
+    return res.status(500).json({ error: e.message });
   }
 }
 
 function atualizar(req, res) {
   const id = Number(req.params.id);
   const parcial = schema.partial({ soldado_id: true }).safeParse(req.body);
-  if (!parcial.success) return res.status(400).json({ erro: parcial.error.issues });
+  if (!parcial.success) return res.status(400).json({ error: parcial.error.issues });
   const existente = model.buscarPorId(id);
-  if (!existente) return res.status(404).json({ erro: 'Avaliação não encontrada.' });
+  if (!existente) return res.status(404).json({ error: 'Avaliação não encontrada.' });
   return res.json(model.atualizar(id, parcial.data));
 }
 
 function remover(req, res) {
   const id = Number(req.params.id);
-  if (!model.buscarPorId(id)) return res.status(404).json({ erro: 'Avaliação não encontrada.' });
+  if (!model.buscarPorId(id)) return res.status(404).json({ error: 'Avaliação não encontrada.' });
   model.remover(id);
   return res.status(204).end();
 }
@@ -50,7 +50,7 @@ function evolucao(req, res) {
 
 function minhaEvolucao(req, res) {
   const soldadoId = req.user.soldado_id;
-  if (!soldadoId) return res.status(403).json({ erro: 'Usuário não vinculado a um soldado.' });
+  if (!soldadoId) return res.status(403).json({ error: 'Usuário não vinculado a um soldado.' });
   return res.json(model.evolucao(soldadoId));
 }
 

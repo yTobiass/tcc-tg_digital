@@ -1,0 +1,85 @@
+@use 'mixins' as m;
+
+.header { @include m.page-header; }
+
+.titleGroup {}
+.pageTitle {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  color: var(--clr-gray-800);
+}
+.counter {
+  font-size: var(--fs-xs);
+  color: var(--clr-gray-400);
+  margin-top: 2px;
+}
+
+.btnNew { @include m.btn-primary; }
+
+.tableWrap {
+  @include m.card;
+  overflow: hidden;
+}
+
+.tableEmpty { @include m.empty-state; }
+.firstLink {
+  display: block;
+  margin-top: 8px;
+  font-size: var(--fs-sm);
+  color: var(--clr-primary-600);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  &:hover { text-decoration: underline; }
+}
+
+.table {
+  @include m.table-base;
+  thead tr { @include m.table-head; }
+  tbody     { @include m.table-body; }
+}
+
+.boldCell { font-weight: 500; color: var(--clr-gray-800); }
+.muteCell { color: var(--clr-gray-500); }
+
+.comAlteracao { font-size: var(--fs-xs); font-weight: 500; color: var(--clr-red-600); }
+.semAlteracao { font-size: var(--fs-xs); font-weight: 500; color: var(--clr-gray-500); }
+
+.badgePdf  { @include m.badge-base; background: var(--clr-primary-100); color: #166534; }
+.badgeDraft { @include m.badge-base; background: var(--clr-yellow-50); color: var(--clr-yellow-700); }
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.actionBtn {
+  font-size: var(--fs-xs);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: text-decoration var(--transition-fast);
+  &:hover { text-decoration: underline; }
+
+  &--blue  { color: var(--clr-blue-600); }
+  &--green { color: var(--clr-primary-600); }
+  &--muted { color: var(--clr-gray-400); }
+}
+
+.loadMore {
+  padding: 16px;
+  text-align: center;
+  border-top: 1px solid var(--clr-gray-100);
+}
+
+.loadMoreBtn {
+  font-size: var(--fs-sm);
+  color: var(--clr-primary-600);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  &:hover { text-decoration: underline; }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+}

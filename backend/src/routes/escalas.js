@@ -14,6 +14,7 @@ router.get  ('/bloqueios',              ...staff,     ctrl.listarBloqueios);
 router.post ('/bloqueios',              ...comandante, ctrl.criarBloqueio);
 router.delete('/bloqueios/:id',         ...comandante, ctrl.removerBloqueio);
 
+router.post ('/fila/inicializar',       ...staff,     ctrl.inicializarFilas);
 router.get  ('/fila/:tipo',             ...staff,     ctrl.fila);
 router.post ('/fila/:tipo/reordenar',   ...staff,     ctrl.reordenar);
 
@@ -23,6 +24,7 @@ router.get  ('/',                       ...staff,     ctrl.listar);
 router.post ('/',                       ...staff,     ctrl.criar);
 router.get  ('/:id',                    ...staff,     ctrl.buscar);
 router.put  ('/:id',                    ...staff,     ctrl.atualizar);
+router.put  ('/:id/membro',             ...staff,     ctrl.alterarMembro);
 router.patch('/:id/status',             ...staff,     ctrl.alterarStatus);
 router.delete('/:id',                   ...staff,     ctrl.remover);
 
