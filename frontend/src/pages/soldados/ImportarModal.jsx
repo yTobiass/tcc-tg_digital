@@ -6,6 +6,7 @@ import styles from './ImportarModal.module.scss';
 export function ImportarModal({ onImportado, onFechar }) {
   const inputRef = useRef(null);
   const [arquivo, setArquivo] = useState(null);
+  const [dataIncorporacao, setDataIncorporacao] = useState('');
   const [resultado, setResultado] = useState(null);
   const [erro, setErro] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -20,10 +21,10 @@ export function ImportarModal({ onImportado, onFechar }) {
   }
 
   async function handleImportar() {
-    if (!arquivo) return;
+    if (!arquivo || !dataIncorporacao) return;
     setEnviando(true);
     try {
-      const res = await soldadosService.importar(arquivo);
+      const res = await soldadosService.importar(arquivo, dataIncorporacao);
       setResultado(res);
       if (res.importados > 0) onImportado();
     } catch (err) {
@@ -50,11 +51,25 @@ export function ImportarModal({ onImportado, onFechar }) {
         <div className={styles.modeloBar}>
           <div>
             <p className={styles.modeloTitle}>Modelo de planilha</p>
-            <p className={styles.modeloDesc}>Preencha e importe para cadastrar em lote.</p>
+            <p className={styles.modeloDesc}>
+              A planilha tem apenas a coluna <strong>Nome Completo</strong>. RA (sequencial), pelotão,
+              graduação (atirador) e turma são preenchidos automaticamente.
+            </p>
           </div>
           <button onClick={handleBaixarModelo} disabled={baixando} className={styles.downloadBtn}>
             {baixando ? 'Baixando...' : 'Baixar modelo'}
           </button>
+        </div>
+
+        <div>
+          <p className={styles.uploadLabel}>Data de Incorporação (aplicada a todos)</p>
+          <input
+            type="date"
+            value={dataIncorporacao}
+            onChange={(e) => setDataIncorporacao(e.target.value)}
+            className={styles.dateInput}
+            style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 14 }}
+          />
         </div>
 
         <div>
@@ -104,7 +119,7 @@ export function ImportarModal({ onImportado, onFechar }) {
           {!resultado?.importados && (
             <button
               onClick={handleImportar}
-              disabled={!arquivo || enviando}
+              disabled={!arquivo || !dataIncorporacao || enviando}
               className={styles.importBtn}
             >
               {enviando ? 'Importando...' : 'Importar'}

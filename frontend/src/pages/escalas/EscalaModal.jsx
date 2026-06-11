@@ -10,7 +10,7 @@ const FUNC_LABEL = { cabo: 'Monitor/Cabo', atirador: 'Atirador' };
 
 // ── Detalhe da escala ─────────────────────────────────────────────────────────
 
-function DetalheEscala({ escala, onFechar, onAtualizar }) {
+function DetalheEscala({ escala, podeEditar = true, onFechar, onAtualizar }) {
   const cabo = escala.membros?.find((m) => m.funcao === 'cabo');
   const ats  = escala.membros?.filter((m) => m.funcao === 'atirador') ?? [];
   const [mudandoStatus, setMudandoStatus] = useState(false);
@@ -23,7 +23,8 @@ function DetalheEscala({ escala, onFechar, onAtualizar }) {
   const [salvando,   setSalvando]   = useState(false);
   const [erro,       setErro]       = useState(null);
 
-  const editavel = escala.status === 'agendada' || escala.status === 'em_andamento';
+  // Só staff (sargento/comandante) edita; e apenas escalas não finalizadas.
+  const editavel = podeEditar && (escala.status === 'agendada' || escala.status === 'em_andamento');
 
   useEffect(() => {
     if (!editavel) return;
@@ -148,16 +149,19 @@ function DetalheEscala({ escala, onFechar, onAtualizar }) {
           </div>
         )}
 
-        <div className={styles.detailActions}>
-          <button onClick={() => gerarPdfEscala(escala)} className={styles.btnPdf}>
-            ⬇ PDF da Escala
-          </button>
-          {STATUS_NEXT[escala.status]?.map(({ acao, label }) => (
-            <button key={acao} disabled={mudandoStatus} onClick={() => mudarStatus(acao)} className={styles.btnStatus}>
-              {label}
+        {/* Ações (PDF, mudança de status) só para staff. Soldado vê só leitura. */}
+        {podeEditar && (
+          <div className={styles.detailActions}>
+            <button onClick={() => gerarPdfEscala(escala)} className={styles.btnPdf}>
+              ⬇ PDF da Escala
             </button>
-          ))}
-        </div>
+            {STATUS_NEXT[escala.status]?.map(({ acao, label }) => (
+              <button key={acao} disabled={mudandoStatus} onClick={() => mudarStatus(acao)} className={styles.btnStatus}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </Modal>
   );
@@ -329,10 +333,14 @@ function CriarEscala({ dataInicial, tiposJaUsados = [], onFechar, onCriada }) {
           <label className={styles.label}>Tipo de Guarda</label>
           <div className={styles.typeBtns}>
             {TIPOS.map((t) => {
-              const habilitado = tiposValidos.includes(t);
-              const motivoBloqueio = t === 'vermelha'
-                ? 'Guarda vermelha só pode ser escalada em sábados ou domingos.'
-                : 'Guarda verde e preta só podem ser escaladas em dias úteis (seg–sex).';
+              // Já existe uma verde nesse dia → bloqueia criar outra verde.
+              const verdeOcupada = t === 'verde' && tiposJaUsados.includes('verde');
+              const habilitado = tiposValidos.includes(t) && !verdeOcupada;
+              const motivoBloqueio = verdeOcupada
+                ? 'Já existe uma guarda verde agendada para este dia.'
+                : t === 'vermelha'
+                  ? 'Guarda vermelha só pode ser escalada em sábados ou domingos.'
+                  : 'Guarda verde e preta só podem ser escaladas em dias úteis (seg–sex).';
               return (
                 <button
                   key={t}
@@ -485,14 +493,14 @@ function CriarEscala({ dataInicial, tiposJaUsados = [], onFechar, onCriada }) {
 
 // ── Export ────────────────────────────────────────────────────────────────────
 
-export default function EscalaModal({ escala, dataInicial, tiposJaUsados, onFechar, onSalvo }) {
+export default function EscalaModal({ escala, dataInicial, tiposJaUsados, podeEditar = true, onFechar, onSalvo }) {
   function handleAtualizar(atualizado) {
     onSalvo(atualizado);
     onFechar();
   }
 
   if (escala) {
-    return <DetalheEscala escala={escala} onFechar={onFechar} onAtualizar={handleAtualizar} />;
+    return <DetalheEscala escala={escala} podeEditar={podeEditar} onFechar={onFechar} onAtualizar={handleAtualizar} />;
   }
 
   return (

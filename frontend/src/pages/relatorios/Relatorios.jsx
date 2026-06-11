@@ -7,6 +7,7 @@ import { Layout }             from '../../components/layout/Layout';
 import { relatoriosService }  from '../../services/relatoriosService';
 import { treinosService }     from '../../services/treinosService';
 import { soldadosService }    from '../../services/soldadosService';
+import { turmasService }      from '../../services/turmasService';
 import { gerarPdfPresenca }   from '../../utils/relatoriosPDF';
 import { formatarData, hoje } from '../../utils/data';
 import styles from './Relatorios.module.scss';
@@ -43,7 +44,7 @@ function InputLabel({ label, children }) {
 
 // ── Aba: Presença ─────────────────────────────────────────────────────────────
 
-function AbaPresenca() {
+function AbaPresenca({ turmaId }) {
   const [dataInicio, setDataInicio] = useState(primeiroDiaMes);
   const [dataFim,    setDataFim]    = useState(hoje);
   const [turma,      setTurma]      = useState('');
@@ -60,6 +61,7 @@ function AbaPresenca() {
       const params = { data_inicio: dataInicio, data_fim: dataFim };
       if (turma)   params.turma   = turma;
       if (pelotao) params.pelotao = pelotao;
+      if (turmaId) params.turma_id = turmaId;
       setDados(await relatoriosService.presenca(params));
     } catch {
       setErro('Erro ao buscar relatório.');
@@ -199,7 +201,7 @@ function TooltipEv({ active, payload, label, unidade, isMedio }) {
   );
 }
 
-function AbaEvolucao() {
+function AbaEvolucao({ turmaId }) {
   const [tipos,      setTipos]      = useState([]);
   const [soldados,   setSoldados]   = useState([]);
   const [tipoId,     setTipoId]     = useState('');
@@ -226,6 +228,7 @@ function AbaEvolucao() {
       if (soldadoId) params.soldado_id = soldadoId;
       if (dataInicio) params.data_inicio = dataInicio;
       if (dataFim)    params.data_fim    = dataFim;
+      if (turmaId)    params.turma_id    = turmaId;
       setDados(await relatoriosService.evolucao(params));
     } catch {
       setErro('Erro ao buscar dados de evolução.');
@@ -353,15 +356,17 @@ function AbaEvolucao() {
 const STATUS_ORDER = ['ativo', 'licenca', 'baixado', 'dispensado'];
 const STATUS_CARD_LABEL = { ativo: 'Ativos', licenca: 'Licença', baixado: 'Baixados', dispensado: 'Dispensados' };
 
-function AbaEfetivo() {
+function AbaEfetivo({ turmaId }) {
   const [dados,        setDados]        = useState(null);
   const [carregando,   setCarregando]   = useState(true);
   const [filtroStatus, setFiltroStatus] = useState('');
   const [busca,        setBusca]        = useState('');
 
   useEffect(() => {
-    relatoriosService.efetivo().then(setDados).finally(() => setCarregando(false));
-  }, []);
+    setCarregando(true);
+    const params = turmaId ? { turma_id: turmaId } : {};
+    relatoriosService.efetivo(params).then(setDados).finally(() => setCarregando(false));
+  }, [turmaId]);
 
   if (carregando) {
     return <div className={styles.chartEmpty}>Carregando…</div>;
@@ -480,10 +485,31 @@ const ABAS = [
 
 export default function Relatorios() {
   const [aba, setAba] = useState('presenca');
+  const [turmas, setTurmas] = useState([]);
+  const [turmaId, setTurmaId] = useState('');
+
+  useEffect(() => {
+    turmasService.listar().then((ts) => {
+      setTurmas(ts);
+      const ativa = ts.find((t) => t.status === 'ativa');
+      if (ativa) setTurmaId(String(ativa.id));
+    }).catch(() => {});
+  }, []);
 
   return (
     <Layout>
-      <h1 className={styles.pageTitle}>Relatórios</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+        <h1 className={styles.pageTitle}>Relatórios</h1>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: '#374151' }}>
+          Turma:
+          <select value={turmaId} onChange={(e) => setTurmaId(e.target.value)}
+            style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 14 }}>
+            {turmas.map((t) => (
+              <option key={t.id} value={t.id}>{t.ano}{t.status === 'ativa' ? ' (ativa)' : ''}</option>
+            ))}
+          </select>
+        </label>
+      </div>
 
       <div className={styles.tabs}>
         {ABAS.map(({ key, label }) => (
@@ -497,9 +523,9 @@ export default function Relatorios() {
         ))}
       </div>
 
-      {aba === 'presenca' && <AbaPresenca />}
-      {aba === 'evolucao' && <AbaEvolucao />}
-      {aba === 'efetivo'  && <AbaEfetivo />}
+      {aba === 'presenca' && <AbaPresenca turmaId={turmaId} />}
+      {aba === 'evolucao' && <AbaEvolucao turmaId={turmaId} />}
+      {aba === 'efetivo'  && <AbaEfetivo turmaId={turmaId} />}
     </Layout>
   );
 }

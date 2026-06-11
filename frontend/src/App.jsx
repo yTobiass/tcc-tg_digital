@@ -6,13 +6,16 @@ import Login from './pages/auth/Login';
 import TrocarSenha from './pages/auth/TrocarSenha';
 import Dashboard from './pages/dashboard/Dashboard';
 import Soldados from './pages/soldados/Soldados';
-import MeuPerfil from './pages/soldados/MeuPerfil';
+import PerfilSoldado from './pages/soldados/PerfilSoldado';
 import Treinos    from './pages/treinos/Treinos';
 import Avaliacoes from './pages/avaliacoes/Avaliacoes';
 import Diario     from './pages/diario/Diario';
 import Escalas    from './pages/escalas/Escalas';
+import Faltas     from './pages/faltas/Faltas';
 import Relatorios from './pages/relatorios/Relatorios';
 import Admin      from './pages/admin/Admin';
+import HistoricoTurma from './pages/admin/HistoricoTurma';
+import SemPermissao from './pages/SemPermissao';
 
 function RootRedirect() {
   const { usuario, carregando } = useAuth();
@@ -29,6 +32,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<RootRedirect />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/sem-permissao" element={<SemPermissao />} />
           <Route
             path="/trocar-senha"
             element={
@@ -55,6 +59,14 @@ export default function App() {
             }
           />
           <Route
+            path="/soldados/:id"
+            element={
+              <ProtectedRoute roles={['comandante', 'sargento']}>
+                <PerfilSoldado />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/treinos"
             element={
               <ProtectedRoute roles={['comandante', 'sargento']}>
@@ -73,7 +85,7 @@ export default function App() {
           <Route
             path="/diario"
             element={
-              <ProtectedRoute roles={['comandante', 'sargento']}>
+              <ProtectedRoute roles={['comandante', 'sargento', 'soldado']}>
                 <Diario />
               </ProtectedRoute>
             }
@@ -81,8 +93,16 @@ export default function App() {
           <Route
             path="/escalas"
             element={
-              <ProtectedRoute roles={['comandante', 'sargento']}>
+              <ProtectedRoute roles={['comandante', 'sargento', 'soldado']}>
                 <Escalas />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/faltas"
+            element={
+              <ProtectedRoute roles={['comandante', 'sargento']}>
+                <Faltas />
               </ProtectedRoute>
             }
           />
@@ -103,14 +123,13 @@ export default function App() {
             }
           />
           <Route
-            path="/meu-perfil"
+            path="/turmas/:id"
             element={
-              <ProtectedRoute roles={['soldado']}>
-                <MeuPerfil />
+              <ProtectedRoute roles={['comandante', 'sargento']}>
+                <HistoricoTurma />
               </ProtectedRoute>
             }
           />
-
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>

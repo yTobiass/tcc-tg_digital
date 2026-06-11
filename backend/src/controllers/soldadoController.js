@@ -83,6 +83,12 @@ function parseDateBR(val) {
 function importar(req, res) {
   if (!req.file) return res.status(400).json({ error: 'Arquivo não enviado.' });
 
+  // Data de incorporação informada uma única vez no formulário, aplicada a todos.
+  const dataIncorporacao = parseDateBR(req.body?.data_incorporacao);
+  if (!dataIncorporacao) {
+    return res.status(400).json({ error: 'Informe a data de incorporação (DD/MM/AAAA) — ela é aplicada a todos os soldados.' });
+  }
+
   let workbook;
   try {
     workbook = XLSX.read(req.file.buffer, { type: 'buffer', cellDates: true });
@@ -95,37 +101,22 @@ function importar(req, res) {
 
   if (linhas.length === 0) return res.status(400).json({ error: 'Planilha sem dados.' });
 
+  // A planilha tem apenas a coluna "Nome Completo"; o resto é preenchido
+  // automaticamente (RA sequencial, pelotão pelo RA, graduação atirador, turma ativa).
   const erros = [];
-  const validos = [];
+  const nomes = [];
 
   linhas.forEach((linha, i) => {
     const n = i + 2;
-    const ra = String(linha['RA'] || '').trim();
     const nome = String(linha['Nome Completo'] || '').trim();
-
-    if (!ra) { erros.push(`Linha ${n}: RA obrigatório.`); return; }
     if (!nome) { erros.push(`Linha ${n}: Nome Completo obrigatório.`); return; }
-
-    const graduacao = String(linha['Graduação'] || 'atirador').toLowerCase().trim();
-    if (!['atirador', 'cabo'].includes(graduacao)) {
-      erros.push(`Linha ${n}: Graduação inválida — use "atirador" ou "cabo".`); return;
-    }
-
-    validos.push({
-      ra,
-      nome_completo: nome,
-      data_nascimento: parseDateBR(linha['Data de Nascimento']),
-      data_incorporacao: parseDateBR(linha['Data de Incorporação']),
-      pelotao: String(linha['Pelotão'] || '').trim() || null,
-      turma: String(linha['Turma'] || '').trim() || null,
-      graduacao,
-    });
+    nomes.push(nome);
   });
 
-  if (validos.length === 0) return res.status(400).json({ error: 'Nenhum registro válido.', erros });
+  if (nomes.length === 0) return res.status(400).json({ error: 'Nenhum registro válido.', erros });
 
   try {
-    const importados = model.importarLote(validos);
+    const importados = model.importarLote(nomes, dataIncorporacao);
     res.json({ importados, erros });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao salvar dados.', detalhe: err.message });
@@ -134,27 +125,13 @@ function importar(req, res) {
 
 function modeloPlanilha(_req, res) {
   const wb = XLSX.utils.book_new();
+  // Apenas a coluna Nome Completo — RA, pelotão, graduação, data de incorporação
+  // e turma são preenchidos automaticamente na importação.
   const ws = XLSX.utils.json_to_sheet([
-    {
-      'RA': '001-1',
-      'Nome Completo': 'SILVA, João Pedro',
-      'Data de Nascimento': '15/03/2005',
-      'Data de Incorporação': '01/02/2024',
-      'Pelotão': '1º Pelotão',
-      'Turma': '2024',
-      'Graduação': 'atirador',
-    },
-    {
-      'RA': '002-1',
-      'Nome Completo': 'SOUZA, Carlos Eduardo',
-      'Data de Nascimento': '22/07/2004',
-      'Data de Incorporação': '01/02/2024',
-      'Pelotão': '1º Pelotão',
-      'Turma': '2024',
-      'Graduação': 'cabo',
-    },
+    { 'Nome Completo': 'SILVA, João Pedro' },
+    { 'Nome Completo': 'SOUZA, Carlos Eduardo' },
   ]);
-  ws['!cols'] = [{ wch: 10 }, { wch: 32 }, { wch: 22 }, { wch: 22 }, { wch: 15 }, { wch: 8 }, { wch: 12 }];
+  ws['!cols'] = [{ wch: 32 }];
   XLSX.utils.book_append_sheet(wb, ws, 'Soldados');
   const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
   res.setHeader('Content-Disposition', 'attachment; filename="modelo_soldados.xlsx"');

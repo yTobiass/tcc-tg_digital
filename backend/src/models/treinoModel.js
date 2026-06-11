@@ -1,4 +1,5 @@
 const { getDb } = require('../database/db');
+const pontos = require('./pontosModel');
 
 function listarTipos() {
   return getDb().prepare('SELECT * FROM tipos_treino ORDER BY nome').all();
@@ -40,15 +41,29 @@ function salvarLote({ data, tipoTreinoId, registros, registradoPor }) {
       registrado_por = excluded.registrado_por
   `);
 
+  const buscarId = db.prepare(
+    'SELECT id FROM registros_treino WHERE soldado_id = ? AND tipo_treino_id = ? AND data = ?'
+  );
+
   const tx = db.transaction((lista) => {
     for (const r of lista) {
+      const presente = r.presente ? 1 : 0;
       upsert.run(
         r.soldado_id, tipoTreinoId, data,
-        r.presente ? 1 : 0,
+        presente,
         r.presente && r.resultado != null && r.resultado !== '' ? Number(r.resultado) : null,
         r.observacao || null,
         registradoPor
       );
+
+      // Integração com o módulo de pontos: ao marcar ausência (presente=0),
+      // registra a falta progressiva uma única vez por registro de treino.
+      if (!presente) {
+        const reg = buscarId.get(r.soldado_id, tipoTreinoId, data);
+        if (reg && !pontos.faltaJaRegistrada(reg.id)) {
+          pontos.registrarFalta(r.soldado_id, reg.id, registradoPor);
+        }
+      }
     }
     return lista.length;
   });

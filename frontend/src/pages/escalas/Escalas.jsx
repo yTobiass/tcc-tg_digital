@@ -33,7 +33,11 @@ function Calendario({ ano, mes, escalas, bloqueios, onDayClick, onNovaEscala }) 
   for (let i = 0; i < diaInicio; i++) cells.push(null);
   for (let d = 1; d <= total; d++) {
     const iso = dataISO(ano, mes, d);
-    const escalasNoDia = escalas.filter((e) => e.data_inicio <= iso && e.data_fim >= iso);
+    // Toda escala aparece APENAS no dia de início (data_inicio), para os três
+    // tipos — nunca no dia de fim. Preta (vira a noite) e vermelha (sáb→dom)
+    // ficam só no data_inicio. A validação de conflito no backend continua
+    // usando data_inicio + data_fim; só a exibição muda.
+    const escalasNoDia = escalas.filter((e) => e.data_inicio === iso);
     const bloqueado    = bloqueios.some((b) => b.data_inicio <= iso && b.data_fim >= iso);
     cells.push({ dia: d, iso, escalasNoDia, bloqueado });
   }
@@ -327,6 +331,7 @@ function BloqueiosView() {
 export default function Escalas() {
   const { usuario }  = useAuth();
   const isComandante = usuario?.role === 'comandante';
+  const isStaff      = usuario?.role === 'comandante' || usuario?.role === 'sargento';
 
   const agora = new Date();
   const [ano,        setAno]        = useState(agora.getFullYear());
@@ -336,15 +341,53 @@ export default function Escalas() {
   const [carregando, setCarregando] = useState(true);
   const [modal,      setModal]      = useState(null);
 
+  // Geração automática de escalas
+  const [temFuturas, setTemFuturas] = useState(false);
+  const [gerando,    setGerando]    = useState(false);
+  const [resultado,  setResultado]  = useState(null); // string de resumo
+  const [erroGerar,  setErroGerar]  = useState(null);
+
   const carregarCalendario = useCallback(async (a, m) => {
     setCarregando(true);
     try { setDadosCal(await escalasService.calendario(a, m)); }
     finally { setCarregando(false); }
   }, []);
 
+  // Há escalas agendadas a partir de hoje? Define se o botão é "Gerar" ou "Regenerar".
+  const verificarFuturas = useCallback(async () => {
+    try {
+      const lista = await escalasService.listar({ status: 'agendada' });
+      const hojeISO = hoje();
+      setTemFuturas(lista.some((e) => e.data_inicio >= hojeISO));
+    } catch { /* silencioso */ }
+  }, []);
+
   useEffect(() => {
     if (aba === 'calendario') carregarCalendario(ano, mes);
   }, [aba, ano, mes, carregarCalendario]);
+
+  useEffect(() => { if (isStaff) verificarFuturas(); }, [isStaff, verificarFuturas]);
+
+  async function gerar(regenerar) {
+    if (regenerar && !window.confirm(
+      'Isso cancelará todas as escalas futuras agendadas e regerará do zero. Confirmar?'
+    )) return;
+    setGerando(true);
+    setErroGerar(null);
+    setResultado(null);
+    try {
+      const r = regenerar ? await escalasService.regenerarAno() : await escalasService.gerarAno();
+      setResultado(
+        `${r.geradas} escalas geradas: ${r.verdes} verdes, ${r.pretas} pretas, ${r.vermelhas} vermelhas` +
+        (r.dias_pulados ? ` · ${r.dias_pulados} slots pulados (sem efetivo disponível)` : '')
+      );
+      await Promise.all([carregarCalendario(ano, mes), verificarFuturas()]);
+    } catch (e) {
+      setErroGerar(e?.response?.data?.error || 'Erro ao gerar escalas.');
+    } finally {
+      setGerando(false);
+    }
+  }
 
   function navMes(delta) {
     let novoMes = mes + delta;
@@ -362,9 +405,10 @@ export default function Escalas() {
     });
   }
 
+  // Soldado vê somente o calendário; staff vê fila; só comandante vê bloqueios.
   const ABAS = [
     { key: 'calendario', label: 'Calendário' },
-    { key: 'fila',       label: 'Fila de Rotação' },
+    ...(isStaff ? [{ key: 'fila', label: 'Fila de Rotação' }] : []),
     ...(isComandante ? [{ key: 'bloqueios', label: 'Períodos Bloqueados' }] : []),
   ];
 
@@ -372,13 +416,34 @@ export default function Escalas() {
     <Layout>
       <div className={styles.header}>
         <h1 className={styles.pageTitle}>Escalas de Guarda</h1>
-        <button
-          onClick={() => setModal({ dataInicial: new Date().toISOString().slice(0, 10) })}
-          className={styles.btnNew}
-        >
-          + Nova Escala
-        </button>
+        {isStaff && (
+          <button
+            onClick={() => gerar(temFuturas)}
+            disabled={gerando}
+            className={styles.btnNew}
+          >
+            {gerando
+              ? 'Gerando…'
+              : temFuturas ? '↻ Regenerar Escalas' : '⚡ Gerar Escalas do Ano'}
+          </button>
+        )}
       </div>
+
+      {gerando && (
+        <div className={styles.genInfo}>
+          Gerando escalas… Isso pode levar alguns segundos.
+        </div>
+      )}
+      {resultado && !gerando && (
+        <div className={styles.genOk} onClick={() => setResultado(null)}>
+          ✓ {resultado}
+        </div>
+      )}
+      {erroGerar && !gerando && (
+        <div className={styles.genErr} onClick={() => setErroGerar(null)}>
+          {erroGerar}
+        </div>
+      )}
 
       <div className={styles.tabs}>
         {ABAS.map(({ key, label }) => (
@@ -413,7 +478,7 @@ export default function Escalas() {
             </div>
           </div>
           <p className={styles.calHint}>
-            Clique no dia para criar uma nova escala (em dias úteis, verde e preta podem coexistir) · Clique em uma escala para ver detalhes
+            As escalas são geradas automaticamente pelo botão acima · Clique em uma escala para ver detalhes{isStaff ? ' e trocar membros' : ''}
           </p>
 
           {carregando ? (
@@ -428,7 +493,7 @@ export default function Escalas() {
                 onDayClick={(escala) => {
                   escalasService.buscar(escala.id).then((e) => setModal({ escala: e }));
                 }}
-                onNovaEscala={(data, tiposJaUsados) => setModal({ dataInicial: data, tiposJaUsados })}
+                onNovaEscala={() => { /* criação manual substituída pela geração automática */ }}
               />
             </div>
           )}
@@ -444,6 +509,7 @@ export default function Escalas() {
           escala={modal.escala ?? null}
           dataInicial={modal.dataInicial ?? null}
           tiposJaUsados={modal.tiposJaUsados ?? []}
+          podeEditar={isStaff}
           onFechar={() => setModal(null)}
           onSalvo={(escala) => { handleSalvo(escala); setModal(null); }}
         />

@@ -1,8 +1,18 @@
 const { getDb } = require('../database/db');
 
-function presenca({ dataInicio, dataFim, turma, pelotao, soldadoId } = {}) {
+// Expressão SQL (sem placeholder) para filtrar pela turma. Se `turmaId` é um
+// inteiro válido, filtra por ele; senão, pela turma ATIVA. Injetada inline para
+// não interferir na ordem de binding dos demais parâmetros.
+function turmaFiltroSQL(turmaId, alias = 's') {
+  const col = alias ? `${alias}.turma_id` : 'turma_id';
+  const n = Number(turmaId);
+  if (Number.isInteger(n) && n > 0) return `${col} = ${n}`;
+  return `${col} = (SELECT id FROM turmas WHERE status = 'ativa' ORDER BY ano DESC LIMIT 1)`;
+}
+
+function presenca({ dataInicio, dataFim, turma, pelotao, soldadoId, turmaId } = {}) {
   const db = getDb();
-  let where = '1=1';
+  let where = turmaFiltroSQL(turmaId);
   const params = [];
 
   if (soldadoId) { where += ' AND s.id = ?';        params.push(soldadoId); }
@@ -43,11 +53,12 @@ function presenca({ dataInicio, dataFim, turma, pelotao, soldadoId } = {}) {
   return db.prepare(sql).all(...params, ...joinParams);
 }
 
-function evolucao({ tipoTreinoId, soldadoId, dataInicio, dataFim } = {}) {
+function evolucao({ tipoTreinoId, soldadoId, dataInicio, dataFim, turmaId } = {}) {
   const db = getDb();
   const params = [];
 
-  let where = 'r.presente = 1 AND r.resultado IS NOT NULL';
+  // Filtra pela turma sempre (via JOIN soldados em ambas as consultas).
+  let where = `r.presente = 1 AND r.resultado IS NOT NULL AND ${turmaFiltroSQL(turmaId)}`;
   if (tipoTreinoId) { where += ' AND r.tipo_treino_id = ?'; params.push(tipoTreinoId); }
   if (soldadoId)    { where += ' AND r.soldado_id = ?';     params.push(soldadoId); }
   if (dataInicio)   { where += ' AND r.data >= ?';          params.push(dataInicio); }
@@ -80,14 +91,17 @@ function evolucao({ tipoTreinoId, soldadoId, dataInicio, dataFim } = {}) {
       t.unidade
     FROM registros_treino r
     JOIN tipos_treino t ON t.id = r.tipo_treino_id
+    JOIN soldados s     ON s.id = r.soldado_id
     WHERE ${where}
     GROUP BY r.data
     ORDER BY r.data ASC
   `).all(...params);
 }
 
-function efetivo() {
+function efetivo({ turmaId } = {}) {
   const db = getDb();
+  const filtro = turmaFiltroSQL(turmaId);
+  const filtroSemAlias = turmaFiltroSQL(turmaId, '');
 
   const soldados = db.prepare(`
     SELECT
@@ -99,17 +113,18 @@ function efetivo() {
         WHERE em.soldado_id = s.id AND eg.status = 'concluida'
       ) AS guardas_concluidas
     FROM soldados s
+    WHERE ${filtro}
     ORDER BY s.nome_completo ASC
   `).all();
 
   const porStatus = db.prepare(`
-    SELECT status, COUNT(*) AS total FROM soldados GROUP BY status
+    SELECT status, COUNT(*) AS total FROM soldados WHERE ${filtroSemAlias} GROUP BY status
   `).all();
 
   const porGraduacao = db.prepare(`
     SELECT graduacao, COUNT(*) AS total
     FROM soldados
-    WHERE status NOT IN ('baixado', 'dispensado')
+    WHERE status NOT IN ('baixado', 'dispensado') AND ${filtroSemAlias}
     GROUP BY graduacao
   `).all();
 

@@ -15,6 +15,10 @@ export const escalasService = {
   sugestao:  (tipo, data_inicio) =>
     api.get('/escalas/sugestao', { params: { tipo, data_inicio } }).then((r) => r.data),
 
+  // Geração automática do ano (dia atual → 31/12).
+  gerarAno:     () => api.post('/escalas/gerar-ano').then((r) => r.data),
+  regenerarAno: () => api.post('/escalas/regenerar-ano').then((r) => r.data),
+
   // tipo da fila: 'cabos' | 'atiradores'
   fila:            (tipo) => api.get(`/escalas/fila/${tipo}`).then((r) => r.data),
   inicializarFila: ()     => api.post('/escalas/fila/inicializar').then((r) => r.data),

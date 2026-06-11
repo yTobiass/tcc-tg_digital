@@ -20,7 +20,7 @@ export function ProtectedRoute({ children, roles }) {
   if (usuario.precisa_trocar_senha) return <Navigate to="/trocar-senha" replace />;
 
   if (roles && !roles.includes(usuario.role)) {
-    return <Navigate to={rotaInicial(usuario.role)} replace />;
+    return <Navigate to="/sem-permissao" replace />;
   }
 
   return children;
@@ -45,6 +45,7 @@ export function ExigeAutenticacao({ children }) {
 }
 
 export function rotaInicial(role) {
-  if (role === 'soldado') return '/meu-perfil';
+  // Soldado enxerga apenas Escalas (calendário) e Diário; cai no calendário.
+  if (role === 'soldado') return '/escalas';
   return '/dashboard';
 }

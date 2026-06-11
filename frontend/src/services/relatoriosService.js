@@ -7,6 +7,6 @@ export const relatoriosService = {
   evolucao: (params = {}) =>
     api.get('/relatorios/evolucao', { params }).then((r) => r.data),
 
-  efetivo: () =>
-    api.get('/relatorios/efetivo').then((r) => r.data),
+  efetivo: (params = {}) =>
+    api.get('/relatorios/efetivo', { params }).then((r) => r.data),
 };

@@ -10,10 +10,15 @@ const NAV_SARGENTO = [
   { to: '/avaliacoes',  label: 'TAF' },
   { to: '/diario',      label: 'Diário' },
   { to: '/escalas',     label: 'Escalas' },
+  { to: '/faltas',      label: 'Faltas' },
   { to: '/relatorios',  label: 'Relatórios' },
 ];
 const NAV_COMANDANTE = [...NAV_SARGENTO, { to: '/admin', label: 'Admin' }];
-const NAV_SOLDADO = [{ to: '/meu-perfil', label: 'Meu Perfil' }];
+// Soldado só enxerga Diário (leitura) e Escalas (calendário).
+const NAV_SOLDADO = [
+  { to: '/diario',  label: 'Diário' },
+  { to: '/escalas', label: 'Escalas' },
+];
 
 export function Layout({ children }) {
   const { usuario, logout }   = useAuth();

@@ -5,9 +5,11 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
 import { dashboardService } from '../../services/dashboardService';
 import { formatarData } from '../../utils/data';
+import { corPontos, corFatd, LIMITE_PONTOS, LIMITE_FATD } from '../../utils/pontos';
 import styles from './Dashboard.module.scss';
 
 const COR_PRIMARIA  = '#16a34a';
@@ -153,6 +155,56 @@ function CardProximasGuardas({ escalas }) {
   );
 }
 
+// Card de alertas de disciplina: soldados com 90+ pontos ou 2+ FATDs.
+function CardAlertasDisciplina({ alertas }) {
+  const navigate = useNavigate();
+  return (
+    <div className={styles.chartCard}>
+      <div className={styles.chartHeader}>
+        <p className={styles.chartTitle}>⚠️ Alertas de disciplina</p>
+        <p className={styles.chartSubtitle}>Soldados com 90+ pontos ou 2+ FATDs</p>
+      </div>
+      {alertas.length === 0 ? (
+        <div className={styles.emptyChart}>Nenhum soldado em situação crítica. 👍</div>
+      ) : (
+        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {alertas.map((s) => {
+            const cp = corPontos(s.total_pontos);
+            const cf = corFatd(s.total_fatd);
+            return (
+              <li key={s.id}>
+                <button
+                  onClick={() => navigate(`/soldados/${s.id}`)}
+                  style={{
+                    width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    gap: 8, padding: '8px 10px', borderRadius: 8, border: '1px solid #f3f4f6',
+                    background: '#fff', cursor: 'pointer', textAlign: 'left',
+                  }}
+                >
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ fontSize: 14, fontWeight: 500, color: '#1f2937', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {s.nome_completo}
+                    </span>
+                    {s.pelotao && <span style={{ fontSize: 12, color: '#9ca3af' }}>{s.pelotao}</span>}
+                  </span>
+                  <span style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <span style={{ ...cp, padding: '2px 8px', borderRadius: 9999, fontSize: 12, fontWeight: 600 }}>
+                      {s.total_pontos} / {LIMITE_PONTOS}
+                    </span>
+                    <span style={{ ...cf, padding: '2px 8px', borderRadius: 9999, fontSize: 12, fontWeight: 600 }}>
+                      {s.total_fatd} / {LIMITE_FATD} FATD
+                    </span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function DashboardSkeleton() {
   return (
     <Layout>
@@ -188,7 +240,7 @@ export default function Dashboard() {
     );
   }
 
-  const { resumo, presencaSemanal, presencaPorPelotao, proximasEscalas } = dados;
+  const { resumo, presencaSemanal, presencaPorPelotao, proximasEscalas, alertasDisciplina = [] } = dados;
   const { totalAtivos, totalEfetivo, presencaHoje, soldadosSemAvaliacao } = resumo;
 
   const taxaHoje = pct(presencaHoje.presentes, presencaHoje.totalRegistrados);
@@ -233,6 +285,10 @@ export default function Dashboard() {
       <div className={styles.chartsGrid}>
         <GraficoPresencaSemanal dados={presencaSemanal} />
         <GraficoPresencaPelotao dados={presencaPorPelotao} />
+      </div>
+
+      <div className={styles.chartsGrid}>
+        <CardAlertasDisciplina alertas={alertasDisciplina} />
       </div>
     </Layout>
   );

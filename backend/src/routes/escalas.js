@@ -9,10 +9,14 @@ const qualquer  = [auth];
 
 // Rotas estáticas ANTES das dinâmicas
 router.get  ('/sugestao',               ...staff,     ctrl.sugestao);
-router.get  ('/calendario',             ...staff,     ctrl.calendario);
+// Calendário: qualquer autenticado (soldado vê somente o calendário).
+router.get  ('/calendario',             ...qualquer,  ctrl.calendario);
 router.get  ('/bloqueios',              ...staff,     ctrl.listarBloqueios);
 router.post ('/bloqueios',              ...comandante, ctrl.criarBloqueio);
 router.delete('/bloqueios/:id',         ...comandante, ctrl.removerBloqueio);
+
+router.post ('/gerar-ano',              ...staff,     ctrl.gerarAno);
+router.post ('/regenerar-ano',          ...staff,     ctrl.regenerarAno);
 
 router.post ('/fila/inicializar',       ...staff,     ctrl.inicializarFilas);
 router.get  ('/fila/:tipo',             ...staff,     ctrl.fila);
@@ -22,7 +26,8 @@ router.get  ('/soldado/:soldadoId',     ...qualquer,  ctrl.historicoPorSoldado);
 
 router.get  ('/',                       ...staff,     ctrl.listar);
 router.post ('/',                       ...staff,     ctrl.criar);
-router.get  ('/:id',                    ...staff,     ctrl.buscar);
+// Detalhe de uma escala: qualquer autenticado (soldado vê os nomes, só leitura).
+router.get  ('/:id',                    ...qualquer,  ctrl.buscar);
 router.put  ('/:id',                    ...staff,     ctrl.atualizar);
 router.put  ('/:id/membro',             ...staff,     ctrl.alterarMembro);
 router.patch('/:id/status',             ...staff,     ctrl.alterarStatus);

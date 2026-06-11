@@ -5,8 +5,8 @@ const c = require('../controllers/treinoController');
 
 const router = Router();
 
-// Rotas sem parâmetro dinâmico primeiro
-router.get('/tipos',     auth, c.listarTipos);
+// Rotas sem parâmetro dinâmico primeiro. Treinos são restritos a staff.
+router.get('/tipos',     auth, roles('comandante', 'sargento'), c.listarTipos);
 router.get('/sessao',    auth, roles('comandante', 'sargento'), c.buscarSessao);
 router.get('/historico', auth, roles('comandante', 'sargento'), c.listarSessoes);
 router.get('/dashboard', auth, roles('comandante', 'sargento'), c.dashboard);

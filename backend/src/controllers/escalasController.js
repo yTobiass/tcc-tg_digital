@@ -1,5 +1,6 @@
 ﻿const { z } = require('zod');
 const model  = require('../models/escalasModel');
+const geracao = require('../services/geracaoEscalas');
 
 // ── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -98,6 +99,10 @@ function sugestao(req, res) {
     const ds = diaSemana(data_inicio);
     if (ds === 0 || ds === 6)
       return res.status(400).json({ error: 'Guarda verde só ocorre de segunda a sexta.' });
+
+    // Já existe uma verde nesse dia → não sugere nenhum soldado.
+    if (model.existeVerdeNoDia(data_inicio))
+      return res.status(400).json({ error: 'Já existe uma guarda verde agendada para este dia.' });
   }
 
   // Sugestão recusada se a data cair em período bloqueado pelo comandante.
@@ -141,6 +146,11 @@ function criar(req, res) {
   const erroRegra = validarRegrasNegocio(tipo, data_inicio, membros);
   if (erroRegra) return res.status(422).json({ error: erroRegra });
 
+  // Não pode haver duas guardas do mesmo tipo (verde/preta/vermelha) começando na
+  // mesma data — espelha a constraint única (tipo, data_inicio).
+  if (model.existeEscalaTipoData(tipo, data_inicio))
+    return res.status(409).json({ error: `Já existe uma guarda ${tipo} agendada para esta data.` });
+
   if (model.estaBloequeado(data_inicio))
     return res.status(422).json({ error: 'Data bloqueada pelo comandante.' });
 
@@ -148,6 +158,9 @@ function criar(req, res) {
     const escala = model.criarEscala({ ...result.data, criado_por: req.user?.id });
     return res.status(201).json(escala);
   } catch (e) {
+    // Violação da constraint única tipo+data (corrida com outra criação).
+    if (e.message?.includes('unique_tipo_data'))
+      return res.status(409).json({ error: `Já existe uma guarda ${tipo} agendada para esta data.` });
     if (e.message?.includes('UNIQUE')) return res.status(409).json({ error: 'Soldado já escalado neste período.' });
     return res.status(500).json({ error: e.message });
   }
@@ -185,7 +198,13 @@ function alterarStatus(req, res) {
   if (!['agendada', 'em_andamento', 'concluida', 'cancelada'].includes(status))
     return res.status(400).json({ error: 'Status inválido.' });
   if (!model.buscarEscala(id)) return res.status(404).json({ error: 'Escala não encontrada.' });
-  return res.json(model.alterarStatus(id, status));
+
+  // Ao concluir, o body pode trazer `ausentes`: lista de soldado_id que faltaram
+  // à guarda e receberão +20 pontos cada.
+  const ausentes = Array.isArray(req.body.ausentes)
+    ? req.body.ausentes.map(Number).filter((n) => Number.isInteger(n))
+    : [];
+  return res.json(model.alterarStatus(id, status, { ausentes, registradoPor: req.user?.id }));
 }
 
 function remover(req, res) {
@@ -203,6 +222,18 @@ function calendario(req, res) {
   const { ano, mes } = req.query;
   if (!ano || !mes) return res.status(400).json({ error: 'ano e mes obrigatórios.' });
   return res.json(model.calendario(Number(ano), Number(mes)));
+}
+
+// ── Geração automática ───────────────────────────────────────────────────────
+
+// POST /api/escalas/gerar-ano — gera do dia atual até 31/12 do ano corrente.
+function gerarAno(req, res) {
+  return res.status(201).json(geracao.gerarEscalasDoAno(req.user?.id));
+}
+
+// POST /api/escalas/regenerar-ano — cancela as futuras agendadas e regera.
+function regenerarAno(req, res) {
+  return res.status(201).json(geracao.regenerarEscalasDoAno(req.user?.id));
 }
 
 // ── Bloqueios ────────────────────────────────────────────────────────────────
@@ -225,6 +256,6 @@ function removerBloqueio(req, res) {
 module.exports = {
   fila, reordenar, inicializarFilas, sugestao,
   listar, buscar, criar, atualizar, alterarMembro, alterarStatus, remover,
-  historicoPorSoldado, calendario,
+  historicoPorSoldado, calendario, gerarAno, regenerarAno,
   listarBloqueios, criarBloqueio, removerBloqueio,
 };

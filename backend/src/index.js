@@ -19,6 +19,8 @@ app.use('/api/dashboard',  require('./routes/dashboard'));
 app.use('/api/avaliacoes', require('./routes/avaliacoes'));
 app.use('/api/diario',     require('./routes/diario'));
 app.use('/api/escalas',    require('./routes/escalas'));
+app.use('/api/faltas',     require('./routes/faltas'));
+app.use('/api/turmas',     require('./routes/turmas'));
 app.use('/api/relatorios', require('./routes/relatorios'));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
@@ -44,6 +46,13 @@ app.use((err, req, res, next) => {
     requestId,
   });
 });
+
+// Garante que sempre exista uma turma ativa ao subir o sistema.
+try {
+  require('./models/turmaModel').garantirTurmaAtiva();
+} catch (e) {
+  console.error('Falha ao garantir turma ativa:', e.message);
+}
 
 app.listen(PORT, () => {
   console.log(`Servidor rodando em http://localhost:${PORT}`);

@@ -6,6 +6,7 @@ function buscar(_req, res) {
     presencaSemanal:    model.presencaSemanal(),
     presencaPorPelotao: model.presencaPorPelotao(),
     proximasEscalas:    model.proximasEscalas(),
+    alertasDisciplina:  model.alertasDisciplina(),
   });
 }
 

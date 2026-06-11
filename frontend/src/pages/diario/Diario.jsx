@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Layout }        from '../../components/layout/Layout';
+import { useAuth }       from '../../hooks/useAuth';
 import { diarioService } from '../../services/diarioService';
 import { formatarData }  from '../../utils/data';
 import { gerarPdfDiario } from '../../utils/diarioPDF';
@@ -13,6 +14,8 @@ function BadgePdf({ gerado }) {
 }
 
 export default function Diario() {
+  const { usuario } = useAuth();
+  const isStaff = usuario?.role === 'comandante' || usuario?.role === 'sargento';
   const [view,       setView]       = useState('lista');
   const [editando,   setEditando]   = useState(null);
   const [diarios,    setDiarios]    = useState([]);
@@ -79,7 +82,7 @@ export default function Diario() {
           <h1 className={styles.pageTitle}>Diário de Rotina</h1>
           <p className={styles.counter}>{total} registro{total !== 1 ? 's' : ''}</p>
         </div>
-        <button onClick={abrirNovo} className={styles.btnNew}>+ Novo Diário</button>
+        {isStaff && <button onClick={abrirNovo} className={styles.btnNew}>+ Novo Diário</button>}
       </div>
 
       <div className={styles.tableWrap}>
@@ -88,9 +91,11 @@ export default function Diario() {
         ) : diarios.length === 0 ? (
           <div className={styles.tableEmpty}>
             Nenhum diário registrado ainda.
-            <button onClick={abrirNovo} className={styles.firstLink}>
-              Registrar o primeiro diário
-            </button>
+            {isStaff && (
+              <button onClick={abrirNovo} className={styles.firstLink}>
+                Registrar o primeiro diário
+              </button>
+            )}
           </div>
         ) : (
           <>
@@ -118,22 +123,27 @@ export default function Diario() {
                     <td className={styles.muteCell}>{d.registrado_por_nome || '—'}</td>
                     <td><BadgePdf gerado={d.pdf_gerado} /></td>
                     <td>
-                      <div className={styles.actions}>
-                        {d.pdf_gerado ? (
-                          <>
-                            <button onClick={() => reimprimir(d)} className={`${styles.actionBtn} ${styles['actionBtn--blue']}`}>
-                              Reimprimir PDF
+                      {/* Soldado tem acesso somente leitura: nenhum botão de ação. */}
+                      {isStaff ? (
+                        <div className={styles.actions}>
+                          {d.pdf_gerado ? (
+                            <>
+                              <button onClick={() => reimprimir(d)} className={`${styles.actionBtn} ${styles['actionBtn--blue']}`}>
+                                Reimprimir PDF
+                              </button>
+                              <button onClick={() => abrirEditar(d)} className={`${styles.actionBtn} ${styles['actionBtn--muted']}`}>
+                                Visualizar
+                              </button>
+                            </>
+                          ) : (
+                            <button onClick={() => abrirEditar(d)} className={`${styles.actionBtn} ${styles['actionBtn--green']}`}>
+                              Editar
                             </button>
-                            <button onClick={() => abrirEditar(d)} className={`${styles.actionBtn} ${styles['actionBtn--muted']}`}>
-                              Visualizar
-                            </button>
-                          </>
-                        ) : (
-                          <button onClick={() => abrirEditar(d)} className={`${styles.actionBtn} ${styles['actionBtn--green']}`}>
-                            Editar
-                          </button>
-                        )}
-                      </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className={styles.muteCell}>—</span>
+                      )}
                     </td>
                   </tr>
                 ))}

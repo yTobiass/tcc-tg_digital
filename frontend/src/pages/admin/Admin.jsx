@@ -4,6 +4,7 @@ import { useAuth }         from '../../hooks/useAuth';
 import { usuariosService } from '../../services/usuariosService';
 import { formatarData }    from '../../utils/data';
 import UsuarioModal        from './UsuarioModal';
+import GerenciarTurma       from './GerenciarTurma';
 import styles from './Admin.module.scss';
 
 function BadgeRole({ role }) {
@@ -220,6 +221,8 @@ export default function Admin() {
           {filtrados.length} de {usuarios.length} usuário(s)
         </div>
       </div>
+
+      <GerenciarTurma />
 
       <div className={styles.warningBox}>
         <strong>Atenção:</strong> O comandante padrão (<code>comandante</code>) não pode ser

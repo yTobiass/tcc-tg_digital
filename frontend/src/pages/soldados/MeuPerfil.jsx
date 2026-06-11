@@ -9,6 +9,7 @@ import { useAuth }           from '../../hooks/useAuth';
 import { soldadosService }   from '../../services/soldadosService';
 import { avaliacoesService } from '../../services/avaliacoesService';
 import { useGuardasSoldado } from '../../hooks/useGuardas';
+import { DisciplinaSecao }   from './DisciplinaSecao';
 import { BG_CONCEITO }       from '../../utils/tafCalculo';
 import { formatarData }      from '../../utils/data';
 import styles from './MeuPerfil.module.scss';
@@ -242,6 +243,8 @@ export default function MeuPerfil() {
               </div>
             </div>
           )}
+
+          {soldado && <DisciplinaSecao soldado={soldado} />}
 
           <div className={styles.tableCardWrap}>
             <div className={styles.tableCardHeader}>

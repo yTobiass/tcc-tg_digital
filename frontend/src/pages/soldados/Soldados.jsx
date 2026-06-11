@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
 import { Badge } from '../../components/ui/Badge';
 import { useSoldados } from '../../hooks/useSoldados';
 import { SoldadoFormModal } from './SoldadoFormModal';
 import { ImportarModal } from './ImportarModal';
+import { corPontos, corFatd, situacao, LIMITE_PONTOS, LIMITE_FATD } from '../../utils/pontos';
 import styles from './Soldados.module.scss';
 
 const STATUS_OPTS = [
@@ -18,6 +20,18 @@ const GRAD_OPTS = [
   { value: 'atirador', label: 'Atirador' },
   { value: 'cabo', label: 'Cabo' },
 ];
+const ORDEM_OPTS = [
+  { value: '', label: 'Ordenar: padrão (nome)' },
+  { value: 'ra', label: 'Número (RA) crescente' },
+  { value: 'pontos_desc', label: 'Pontos: maior → menor' },
+  { value: 'pontos_asc', label: 'Pontos: menor → maior' },
+];
+
+// Valor numérico do RA para ordenação (ex.: '001-1' → 1, '100-1' → 100).
+function numeroRA(ra) {
+  const n = parseInt(ra, 10);
+  return Number.isNaN(n) ? null : n;
+}
 
 // Cores dos badges de contagem de guardas por tipo.
 const GUARDA_BADGE_STYLE = {
@@ -47,25 +61,63 @@ function GuardaCount({ valor, tipo }) {
   );
 }
 
+// Pílula colorida para pontos / FATDs com indicador "x / limite".
+function Pill({ valor, limite, cor }) {
+  return (
+    <span style={{
+      ...cor, display: 'inline-block', minWidth: 44, padding: '2px 8px', borderRadius: 9999,
+      fontSize: 12, fontWeight: 600, textAlign: 'center',
+    }}>
+      {valor} / {limite}
+    </span>
+  );
+}
+
 export default function Soldados() {
+  const navigate = useNavigate();
   const { soldados, carregando, erro, carregar } = useSoldados();
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('');
   const [filtroGrad, setFiltroGrad] = useState('');
+  const [filtroPelotao, setFiltroPelotao] = useState('');
+  const [ordem, setOrdem] = useState('');
   const [modalForm, setModalForm] = useState(null);
   const [modalImportar, setModalImportar] = useState(false);
 
   useEffect(() => { carregar(); }, [carregar]);
 
+  // Pelotões existentes no efetivo carregado (1º → 4º), para popular o filtro.
+  const pelotoesDisponiveis = useMemo(() => {
+    const unicos = [...new Set(soldados.map((s) => s.pelotao).filter(Boolean))];
+    return unicos.sort((a, b) => a.localeCompare(b, 'pt', { numeric: true }));
+  }, [soldados]);
+
   const filtrados = useMemo(() => {
     const b = busca.toLowerCase();
-    return soldados.filter((s) => {
+    const lista = soldados.filter((s) => {
       if (b && !s.nome_completo.toLowerCase().includes(b) && !s.ra.toLowerCase().includes(b)) return false;
       if (filtroStatus && s.status !== filtroStatus) return false;
       if (filtroGrad && s.graduacao !== filtroGrad) return false;
+      if (filtroPelotao && s.pelotao !== filtroPelotao) return false;
       return true;
     });
-  }, [soldados, busca, filtroStatus, filtroGrad]);
+    // Ordenação (sobre a cópia já filtrada — não muta o estado).
+    if (ordem === 'ra') {
+      // Por número do RA; RAs sem número numérico vão para o fim.
+      lista.sort((a, b2) => {
+        const na = numeroRA(a.ra), nb = numeroRA(b2.ra);
+        if (na == null && nb == null) return (a.ra || '').localeCompare(b2.ra || '', 'pt', { numeric: true });
+        if (na == null) return 1;
+        if (nb == null) return -1;
+        return na - nb;
+      });
+    } else if (ordem === 'pontos_desc') {
+      lista.sort((a, b2) => (b2.total_pontos ?? 0) - (a.total_pontos ?? 0));
+    } else if (ordem === 'pontos_asc') {
+      lista.sort((a, b2) => (a.total_pontos ?? 0) - (b2.total_pontos ?? 0));
+    }
+    return lista;
+  }, [soldados, busca, filtroStatus, filtroGrad, filtroPelotao, ordem]);
 
   function handleSalvar() {
     setModalForm(null);
@@ -112,9 +164,24 @@ export default function Soldados() {
         >
           {GRAD_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
-        {(busca || filtroStatus || filtroGrad) && (
+        <select
+          value={filtroPelotao}
+          onChange={(e) => setFiltroPelotao(e.target.value)}
+          className={styles.select}
+        >
+          <option value="">Todos os pelotões</option>
+          {pelotoesDisponiveis.map((p) => <option key={p} value={p}>{p}</option>)}
+        </select>
+        <select
+          value={ordem}
+          onChange={(e) => setOrdem(e.target.value)}
+          className={styles.select}
+        >
+          {ORDEM_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+        {(busca || filtroStatus || filtroGrad || filtroPelotao || ordem) && (
           <button
-            onClick={() => { setBusca(''); setFiltroStatus(''); setFiltroGrad(''); }}
+            onClick={() => { setBusca(''); setFiltroStatus(''); setFiltroGrad(''); setFiltroPelotao(''); setOrdem(''); }}
             className={styles.clearBtn}
           >
             Limpar
@@ -144,6 +211,9 @@ export default function Soldados() {
                 <th style={{ textAlign: 'center' }}>🟢 Verde</th>
                 <th style={{ textAlign: 'center' }}>⚫ Preta</th>
                 <th style={{ textAlign: 'center' }}>🔴 Vermelha</th>
+                <th style={{ textAlign: 'center' }}>Pontos</th>
+                <th style={{ textAlign: 'center' }}>FATDs</th>
+                <th style={{ textAlign: 'center' }}>Situação</th>
                 <th style={{ textAlign: 'right' }}>Ações</th>
               </tr>
             </thead>
@@ -151,7 +221,15 @@ export default function Soldados() {
               {filtrados.map((s) => (
                 <tr key={s.id}>
                   <td className={styles.raCell}>{s.ra}</td>
-                  <td className={styles.nameCell}>{s.nome_completo}</td>
+                  <td className={styles.nameCell}>
+                    <button
+                      onClick={() => navigate(`/soldados/${s.id}`)}
+                      style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'inherit', cursor: 'pointer', textAlign: 'left' }}
+                      title="Ver perfil"
+                    >
+                      {s.nome_completo}
+                    </button>
+                  </td>
                   <td className={`${styles.muteCell} ${styles.hideMd}`}>{s.pelotao || '—'}</td>
                   <td className={`${styles.muteCell} ${styles.hideMd}`}>{s.turma || '—'}</td>
                   <td><Badge value={s.graduacao} /></td>
@@ -164,6 +242,19 @@ export default function Soldados() {
                   </td>
                   <td style={{ textAlign: 'center' }}><GuardaCount valor={s.total_preta} tipo="preta" /></td>
                   <td style={{ textAlign: 'center' }}><GuardaCount valor={s.total_vermelha} tipo="vermelha" /></td>
+                  <td style={{ textAlign: 'center' }}>
+                    <Pill valor={s.total_pontos ?? 0} limite={LIMITE_PONTOS} cor={corPontos(s.total_pontos ?? 0)} />
+                  </td>
+                  <td style={{ textAlign: 'center' }}>
+                    <Pill valor={s.total_fatd ?? 0} limite={LIMITE_FATD} cor={corFatd(s.total_fatd ?? 0)} />
+                  </td>
+                  <td style={{ textAlign: 'center' }}>
+                    {(() => { const sit = situacao(s); return (
+                      <span style={{ background: sit.bg, color: sit.fg, padding: '2px 8px', borderRadius: 9999, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                        {sit.label}
+                      </span>
+                    ); })()}
+                  </td>
                   <td style={{ textAlign: 'right' }}>
                     <button onClick={() => setModalForm(s)} className={styles.editBtn}>
                       Editar

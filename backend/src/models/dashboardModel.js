@@ -92,4 +92,17 @@ function proximasEscalas() {
   `).all();
 }
 
-module.exports = { resumo, presencaSemanal, presencaPorPelotao, proximasEscalas };
+// Alertas de disciplina: soldados ativos com 90+ pontos (crítico) ou 2+ FATDs
+// (risco de expulsão). Ordenados do mais crítico para o menos crítico.
+function alertasDisciplina() {
+  return getDb().prepare(`
+    SELECT id, nome_completo, pelotao, total_pontos, total_fatd, status
+    FROM   soldados
+    WHERE  status = 'ativo'
+      AND  (total_pontos >= 90 OR total_fatd >= 2)
+    ORDER  BY total_fatd DESC, total_pontos DESC
+    LIMIT  20
+  `).all();
+}
+
+module.exports = { resumo, presencaSemanal, presencaPorPelotao, proximasEscalas, alertasDisciplina };

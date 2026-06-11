@@ -15,9 +15,10 @@ export const soldadosService = {
   criar: (dados) => api.post('/soldados', dados).then((r) => r.data),
   atualizar: (id, dados) => api.put(`/soldados/${id}`, dados).then((r) => r.data),
 
-  importar: (arquivo) => {
+  importar: (arquivo, dataIncorporacao) => {
     const form = new FormData();
     form.append('arquivo', arquivo);
+    if (dataIncorporacao) form.append('data_incorporacao', dataIncorporacao);
     return api.post('/soldados/importar', form).then((r) => r.data);
   },
 

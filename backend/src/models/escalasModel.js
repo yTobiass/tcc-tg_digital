@@ -1,4 +1,8 @@
 const { getDb } = require('../database/db');
+const pontos = require('./pontosModel');
+
+// Subquery da turma ativa — escalas são criadas e listadas dentro dela.
+const TURMA_ATIVA = "(SELECT id FROM turmas WHERE status = 'ativa' ORDER BY ano DESC LIMIT 1)";
 
 // ── Filas de Rotação (modelo de 2 filas compartilhadas) ──────────────────────
 // fila_cabos      (tipo_guarda='cabos')      → guardas preta e vermelha
@@ -223,7 +227,7 @@ function listarEscalas({ tipo, mes, ano, status } = {}) {
            COUNT(em.id) AS total_membros
     FROM escalas_guarda e
     LEFT JOIN escala_membros em ON em.escala_id = e.id
-    WHERE 1=1
+    WHERE e.turma_id = ${TURMA_ATIVA}
   `;
   const p = [];
   if (tipo)   { q += ' AND e.tipo = ?';   p.push(tipo);   }
@@ -236,6 +240,43 @@ function listarEscalas({ tipo, mes, ano, status } = {}) {
   }
   q += ' GROUP BY e.id ORDER BY e.data_inicio DESC';
   return db.prepare(q).all(...p);
+}
+
+// Existe outra guarda VERDE (não cancelada) começando exatamente neste dia?
+// Usado para impedir duas verdes no mesmo dia. `excluirId` ignora uma escala
+// específica (útil ao editar a própria escala).
+function existeVerdeNoDia(data, excluirId = null) {
+  return !!getDb().prepare(`
+    SELECT 1 FROM escalas_guarda
+    WHERE tipo = 'verde' AND status != 'cancelada' AND data_inicio = ?
+      AND (? IS NULL OR id != ?)
+    LIMIT 1
+  `).get(data, excluirId, excluirId);
+}
+
+// Existe outra escala do tipo informado (não cancelada) começando exatamente em
+// `dataInicio`? Verificação anti-duplicação espelhada pela constraint única
+// (tipo, data_inicio) WHERE status != 'cancelada'. Usada na geração automática
+// e na criação manual para verde/preta/vermelha. `excluirId` ignora a própria
+// escala ao editar.
+function existeEscalaTipoData(tipo, dataInicio, excluirId = null) {
+  return !!getDb().prepare(`
+    SELECT 1 FROM escalas_guarda
+    WHERE tipo = ? AND status != 'cancelada' AND data_inicio = ?
+      AND (? IS NULL OR id != ?)
+    LIMIT 1
+  `).get(tipo, dataInicio, excluirId, excluirId);
+}
+
+// Existe alguma escala do tipo informado (não cancelada) que cobre o período
+// [dataInicio, dataFim]? Usado na geração para não duplicar preta/vermelha.
+function existeEscalaCobrindo(tipo, dataInicio, dataFim) {
+  return !!getDb().prepare(`
+    SELECT 1 FROM escalas_guarda
+    WHERE tipo = ? AND status != 'cancelada'
+      AND data_inicio <= ? AND data_fim >= ?
+    LIMIT 1
+  `).get(tipo, dataFim, dataInicio);
 }
 
 function buscarEscala(id) {
@@ -261,8 +302,8 @@ function criarEscala({ tipo, data_inicio, data_fim, observacoes, membros, criado
 
   const escalaId = db.transaction(() => {
     const r = db.prepare(`
-      INSERT INTO escalas_guarda (tipo, data_inicio, data_fim, observacoes, criado_por)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO escalas_guarda (tipo, data_inicio, data_fim, observacoes, criado_por, turma_id)
+      VALUES (?, ?, ?, ?, ?, ${TURMA_ATIVA})
     `).run(tipo, data_inicio, data_fim, observacoes ?? null, criado_por ?? null);
 
     const id = r.lastInsertRowid;
@@ -346,8 +387,27 @@ function alterarMembro(escalaId, soldadoRemovidoId, soldadoNovoId, motivo) {
   })();
 }
 
-function alterarStatus(id, status) {
-  getDb().prepare('UPDATE escalas_guarda SET status = ? WHERE id = ?').run(status, id);
+// Conclui/altera o status de uma escala. Ao concluir (status = 'concluida'),
+// os soldados informados em `ausentes` recebem +20 pontos de falta em guarda
+// (uma única vez por escala). `ausentes` é uma lista de soldado_id.
+function alterarStatus(id, status, { ausentes = [], registradoPor } = {}) {
+  const db = getDb();
+  const escala = db.prepare('SELECT status FROM escalas_guarda WHERE id = ?').get(id);
+  db.prepare('UPDATE escalas_guarda SET status = ? WHERE id = ?').run(status, id);
+
+  const concluindoAgora = status === 'concluida' && escala && escala.status !== 'concluida';
+  if (concluindoAgora && ausentes.length > 0) {
+    const membros = db.prepare('SELECT soldado_id FROM escala_membros WHERE escala_id = ?').all(id);
+    const idsMembros = new Set(membros.map((m) => m.soldado_id));
+    const marcar = db.prepare('UPDATE escala_membros SET compareceu = 0 WHERE escala_id = ? AND soldado_id = ?');
+    for (const soldadoId of ausentes) {
+      if (!idsMembros.has(soldadoId)) continue;       // só membros da escala
+      marcar.run(id, soldadoId);
+      if (!pontos.faltaGuardaJaRegistrada(soldadoId, id)) {
+        pontos.registrarFaltaGuarda(soldadoId, id, registradoPor);
+      }
+    }
+  }
   return buscarEscala(id);
 }
 
@@ -379,6 +439,7 @@ function calendario(ano, mes) {
     FROM escalas_guarda e
     LEFT JOIN escala_membros em ON em.escala_id = e.id
     WHERE e.status != 'cancelada'
+      AND e.turma_id = ${TURMA_ATIVA}
       AND e.data_inicio <= ? AND e.data_fim >= ?
     GROUP BY e.id
     ORDER BY e.data_inicio ASC
@@ -417,7 +478,7 @@ function removerBloqueio(id) {
 
 module.exports = {
   garantirFilas, inicializarFilas, listarFila, sugerirMembros, listarSoldadosElegiveis,
-  reordenarFila, verificarEReiniciarFila,
+  reordenarFila, verificarEReiniciarFila, existeVerdeNoDia, existeEscalaTipoData, existeEscalaCobrindo,
   listarEscalas, buscarEscala, criarEscala, atualizarEscala, alterarMembro,
   alterarStatus, removerEscala, historicoPorSoldado, calendario,
   estaBloequeado, listarBloqueios, criarBloqueio, removerBloqueio,

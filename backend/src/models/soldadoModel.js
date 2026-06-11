@@ -1,5 +1,8 @@
 const { getDb } = require('../database/db');
 
+// Subquery da turma ativa — todas as listagens/criações operam sobre ela.
+const TURMA_ATIVA = "(SELECT id FROM turmas WHERE status = 'ativa' ORDER BY ano DESC LIMIT 1)";
+
 function listar({ turma, pelotao, status, graduacao, busca } = {}) {
   const db = getDb();
   // Inclui a contagem de guardas CONCLUÍDAS por tipo via LEFT JOIN com a
@@ -19,7 +22,7 @@ function listar({ turma, pelotao, status, graduacao, busca } = {}) {
       JOIN escalas_guarda eg ON eg.id = em.escala_id AND eg.status = 'concluida'
       GROUP BY em.soldado_id
     ) g ON g.soldado_id = s.id
-    WHERE 1=1`;
+    WHERE s.turma_id = ${TURMA_ATIVA}`;
   const params = [];
 
   if (turma)    { q += ' AND s.turma = ?';    params.push(turma); }
@@ -53,8 +56,8 @@ function criar(dados) {
   const db = getDb();
   const { ra, nome_completo, data_nascimento, data_incorporacao, pelotao, turma, graduacao, status } = dados;
   const r = db.prepare(
-    `INSERT INTO soldados (ra, nome_completo, data_nascimento, data_incorporacao, pelotao, turma, graduacao, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO soldados (ra, nome_completo, data_nascimento, data_incorporacao, pelotao, turma, graduacao, status, turma_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ${TURMA_ATIVA})`
   ).run(ra, nome_completo, data_nascimento || null, data_incorporacao || null, pelotao || null, turma || null, graduacao || 'atirador', status || 'ativo');
   return buscarPorId(r.lastInsertRowid);
 }
@@ -70,26 +73,41 @@ function atualizar(id, dados) {
   return buscarPorId(id);
 }
 
-function importarLote(soldados) {
+// Regras do TG 02-032 para importação:
+// RA sequencial por turma (001-1, 002-1, …) e pelotão derivado do número do RA.
+function formatarRA(n) { return `${String(n).padStart(3, '0')}-1`; }
+function pelotaoPorNumero(n) {
+  if (n >= 1   && n <= 25)  return '1º Pelotão';
+  if (n >= 26  && n <= 50)  return '2º Pelotão';
+  if (n >= 51  && n <= 75)  return '3º Pelotão';
+  if (n >= 76  && n <= 100) return '4º Pelotão';
+  return null; // além da capacidade (100) — pelotão indefinido
+}
+
+// Importa um lote informando apenas os nomes. O sistema preenche o resto:
+// - RA: sequencial dentro da turma ativa (continua de onde parou);
+// - Data de Incorporação: a mesma para todos (informada no formulário);
+// - Pelotão: pelo número do RA; Graduação: 'atirador'; Turma: a ativa.
+function importarLote(nomes, dataIncorporacao) {
   const db = getDb();
-  const upsert = db.prepare(
-    `INSERT INTO soldados (ra, nome_completo, data_nascimento, data_incorporacao, pelotao, turma, graduacao, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'ativo')
-     ON CONFLICT(ra) DO UPDATE SET
-       nome_completo=excluded.nome_completo,
-       data_nascimento=excluded.data_nascimento,
-       data_incorporacao=excluded.data_incorporacao,
-       pelotao=excluded.pelotao,
-       turma=excluded.turma,
-       graduacao=excluded.graduacao`
+  const turmaId = db.prepare(`SELECT id FROM turmas WHERE status = 'ativa' ORDER BY ano DESC LIMIT 1`).get()?.id ?? null;
+
+  const insert = db.prepare(
+    `INSERT INTO soldados (ra, nome_completo, data_incorporacao, pelotao, graduacao, status, turma_id)
+     VALUES (?, ?, ?, ?, 'atirador', 'ativo', ?)`
   );
+
   const importarTodos = db.transaction((lista) => {
-    for (const s of lista) {
-      upsert.run(s.ra, s.nome_completo, s.data_nascimento || null, s.data_incorporacao || null, s.pelotao || null, s.turma || null, s.graduacao || 'atirador');
+    // Continua a numeração a partir do efetivo já existente na turma ativa.
+    const existentes = db.prepare('SELECT COUNT(*) c FROM soldados WHERE turma_id = ?').get(turmaId).c;
+    let seq = existentes;
+    for (const nome of lista) {
+      seq += 1;
+      insert.run(formatarRA(seq), nome, dataIncorporacao ?? null, pelotaoPorNumero(seq), turmaId);
     }
     return lista.length;
   });
-  return importarTodos(soldados);
+  return importarTodos(nomes);
 }
 
 module.exports = { listar, buscarPorId, guardasDoSoldado, criar, atualizar, importarLote };

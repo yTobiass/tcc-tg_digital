@@ -1,7 +1,7 @@
 ﻿const model = require('../models/relatorioModel');
 
 function relatorioPresenca(req, res) {
-  const { data_inicio, data_fim, turma, pelotao, soldado_id } = req.query;
+  const { data_inicio, data_fim, turma, pelotao, soldado_id, turma_id } = req.query;
   if (!data_inicio || !data_fim) {
     return res.status(400).json({ error: 'data_inicio e data_fim são obrigatórios.' });
   }
@@ -11,23 +11,26 @@ function relatorioPresenca(req, res) {
     turma:      turma   || null,
     pelotao:    pelotao || null,
     soldadoId:  soldado_id ? Number(soldado_id) : null,
+    turmaId:    turma_id ? Number(turma_id) : null,
   });
   res.json(dados);
 }
 
 function relatorioEvolucao(req, res) {
-  const { tipo_treino_id, soldado_id, data_inicio, data_fim } = req.query;
+  const { tipo_treino_id, soldado_id, data_inicio, data_fim, turma_id } = req.query;
   const dados = model.evolucao({
     tipoTreinoId: tipo_treino_id ? Number(tipo_treino_id) : null,
     soldadoId:    soldado_id    ? Number(soldado_id)    : null,
     dataInicio:   data_inicio   || null,
     dataFim:      data_fim      || null,
+    turmaId:      turma_id ? Number(turma_id) : null,
   });
   res.json(dados);
 }
 
-function relatorioEfetivo(_req, res) {
-  res.json(model.efetivo());
+function relatorioEfetivo(req, res) {
+  const { turma_id } = req.query;
+  res.json(model.efetivo({ turmaId: turma_id ? Number(turma_id) : null }));
 }
 
 module.exports = { relatorioPresenca, relatorioEvolucao, relatorioEfetivo };
