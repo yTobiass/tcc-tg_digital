@@ -46,6 +46,11 @@ function login(req, res) {
   const payload = montarPayload(usuario);
   const token = assinarToken(payload);
 
+  // TEMP DEBUG (remover após depurar): confirma que o token foi gerado no login.
+  console.log(
+    `[DEBUG login] usuario="${payload.login}" token=${token ? 'gerado (' + token.slice(0, 16) + '...)' : 'FALHOU'}`
+  );
+
   return res.json({ token, usuario: payload });
 }
 

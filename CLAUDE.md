@@ -1,29 +1,28 @@
-Atualizar a importação de soldados para preencher automaticamente 
-os campos com base nas seguintes regras do TG 02-032:
+Bug: ao fazer login, o sistema redireciona corretamente mas 
+volta imediatamente para a tela de login.
 
-1. RA: gerado automaticamente em sequência (001-1, 002-1, 003-1... 100-1).
-   O sargento não precisa preencher — o sistema atribui na ordem de importação.
+Investigar e corrigir as seguintes causas possíveis:
 
-2. Data de Incorporação: igual para todos os soldados da importação.
-   Adicionar um campo de data no formulário de importação para o sargento 
-   informar uma vez só antes de importar. Aplicar a todos os registros.
+1. Token JWT não está sendo salvo corretamente após o login
+   - Verificar se o POST /api/auth/login está retornando o token
+   - Verificar se o frontend está salvando o token 
+     (localStorage ou cookie) após receber a resposta
 
-3. Pelotão: definido automaticamente pelo RA:
-   - 001 a 025 → 1º Pelotão
-   - 026 a 050 → 2º Pelotão
-   - 051 a 075 → 3º Pelotão
-   - 076 a 100 → 4º Pelotão
+2. AuthContext não está lendo o token salvo ao inicializar
+   - Verificar se o useEffect do AuthContext lê o token 
+     do localStorage ao carregar a página
+   - Verificar se o estado 'user' está sendo populado corretamente
 
-4. Graduação: todos entram como 'atirador' por padrão.
-   O sargento altera manualmente depois se necessário.
+3. ProtectedRoute redirecionando antes do AuthContext terminar de carregar
+   - Verificar se existe um estado 'loading' no AuthContext
+   - O ProtectedRoute deve aguardar loading = false antes 
+     de redirecionar para /login
 
-5. Turma: vinculada automaticamente à turma ativa do sistema.
-   Não precisa de coluna na planilha.
+4. CORS bloqueando a resposta do backend
+   - Verificar se o CORS está configurado corretamente 
+     no backend para http://localhost:5173
+   - Verificar se o .env tem FRONTEND_URL=http://localhost:5173
 
-Resultado: o modelo de planilha passa a ter apenas uma coluna obrigatória:
-| Nome Completo |
-| SILVA, João Pedro |
-| SOUZA, Carlos Eduardo |
-
-Atualizar o modelo para download, o parser de importação e o 
-formulário de importação para refletir essas mudanças.
+Adicionar um console.log temporário no login para depurar:
+- No backend: logar se o token está sendo gerado
+- No frontend: logar o que está sendo recebido na resposta do login

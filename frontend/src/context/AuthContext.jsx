@@ -5,8 +5,14 @@ export const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [usuario, setUsuario] = useState(() => {
-    const salvo = localStorage.getItem('usuario');
-    return salvo ? JSON.parse(salvo) : null;
+    try {
+      const salvo = localStorage.getItem('usuario');
+      return salvo ? JSON.parse(salvo) : null;
+    } catch {
+      // Dado corrompido em localStorage não pode derrubar a aplicação inteira.
+      localStorage.removeItem('usuario');
+      return null;
+    }
   });
   const [carregando, setCarregando] = useState(true);
 
@@ -30,6 +36,11 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (loginInput, senha) => {
     const { data } = await api.post('/auth/login', { login: loginInput, senha });
+    // TEMP DEBUG (remover após depurar): o que o backend devolveu no login.
+    console.log('[DEBUG login] resposta recebida:', {
+      temToken: !!data.token,
+      usuario: data.usuario,
+    });
     localStorage.setItem('token', data.token);
     localStorage.setItem('usuario', JSON.stringify(data.usuario));
     setUsuario(data.usuario);

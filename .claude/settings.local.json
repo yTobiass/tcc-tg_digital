@@ -47,7 +47,8 @@
       "Bash(C:/nvm4w/nodejs/node.exe -e ' *)",
       "Bash(netstat -ano)",
       "Bash(echo \"exit:$?\")",
-      "Bash(npm *)"
+      "Bash(npm *)",
+      "PowerShell(Get-NetTCPConnection *)"
     ]
   }
 }

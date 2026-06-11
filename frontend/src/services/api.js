@@ -11,10 +11,20 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    // Só tratamos como "sessão expirada" um 401 vindo de uma rota JÁ autenticada.
+    // 401 em /auth/login (senha errada) e /auth/me (validação na inicialização)
+    // são esperados e devem ser tratados por quem chamou — NÃO podemos forçar um
+    // reload aqui, senão a mensagem de erro do login some e a tela "pisca".
+    const url = err.config?.url || '';
+    const ehRotaAuth = url.includes('/auth/login') || url.includes('/auth/me');
+
+    if (err.response?.status === 401 && !ehRotaAuth) {
       localStorage.removeItem('token');
       localStorage.removeItem('usuario');
-      window.location.href = '/login';
+      // Evita loop de reload caso já estejamos na tela de login.
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(err);
   }
