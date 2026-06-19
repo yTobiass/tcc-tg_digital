@@ -49,10 +49,10 @@ function buscarTurma(id) {
 
 function soldadosDaTurma(turmaId) {
   return getDb().prepare(`
-    SELECT id, ra, nome_completo, pelotao, graduacao, status,
+    SELECT id, ra, nome_completo, nome_guerra, pelotao, graduacao, status,
            total_pontos, total_fatd, total_faltas
     FROM soldados WHERE turma_id = ?
-    ORDER BY nome_completo ASC
+    ORDER BY COALESCE(NULLIF(nome_guerra, ''), nome_completo) ASC
   `).all(turmaId);
 }
 
@@ -72,7 +72,7 @@ function faltasDaTurma(turmaId) {
   return getDb().prepare(`
     SELECT rp.id, rp.tipo, rp.pontos, rp.total_acumulado,
            COALESCE(rp.data_referencia, date(rp.created_at)) AS data,
-           s.ra, s.nome_completo, s.pelotao,
+           s.ra, s.nome_completo, s.nome_guerra, s.pelotao,
            u.nome AS registrado_por_nome
     FROM registros_pontos rp
     JOIN soldados s ON s.id = rp.soldado_id
@@ -85,7 +85,7 @@ function faltasDaTurma(turmaId) {
 // Ocorrências (expulsões, estornos, reativações…) dos soldados da turma.
 function ocorrenciasDaTurma(turmaId) {
   return getDb().prepare(`
-    SELECT o.id, o.tipo, o.descricao, o.data, s.ra, s.nome_completo
+    SELECT o.id, o.tipo, o.descricao, o.data, s.ra, s.nome_completo, s.nome_guerra
     FROM ocorrencias o
     JOIN soldados s ON s.id = o.soldado_id
     WHERE s.turma_id = ?

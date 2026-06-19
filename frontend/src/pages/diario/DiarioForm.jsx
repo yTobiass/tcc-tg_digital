@@ -5,6 +5,7 @@ import { diarioService } from '../../services/diarioService';
 import { soldadosService } from '../../services/soldadosService';
 import { gerarPdfDiario } from '../../utils/diarioPDF';
 import { formatarData, hoje } from '../../utils/data';
+import { raExibicao } from '../../utils/nomes';
 import styles from './DiarioForm.module.scss';
 
 const STATUS_OPTS = ['Sem Alteração', 'Com Alteração'];
@@ -33,12 +34,15 @@ function SoldadoSelect({ soldados, valorRa, onSelect, disabled, placeholder, gra
       value={valorRa ?? ''}
       onChange={(e) => {
         const s = soldados.find((x) => String(x.ra) === e.target.value);
+        // Prefere o nome de guerra cadastrado; deriva do nome completo só como
+        // fallback para dados antigos sem o campo preenchido.
+        const guerra = s ? (s.nome_guerra || nomeGuerraDe(s.nome_completo)) : '';
         onSelect(s
           ? {
               numero:       String(s.ra),
-              nome:         nomeGuerraDe(s.nome_completo),
+              nome:         guerra,
               nomeCompleto: s.nome_completo,
-              nomeGuerra:   nomeGuerraDe(s.nome_completo),
+              nomeGuerra:   guerra,
             }
           : { numero: '', nome: '', nomeCompleto: '', nomeGuerra: '' });
       }}
@@ -46,7 +50,7 @@ function SoldadoSelect({ soldados, valorRa, onSelect, disabled, placeholder, gra
       <option value="">{placeholder ?? 'Selecione o soldado…'}</option>
       {lista.map((s) => (
         <option key={s.id} value={s.ra}>
-          {s.nome_completo} — RA {s.ra}
+          {s.nome_completo} — RA {raExibicao(s.ra)}
         </option>
       ))}
     </select>
@@ -188,6 +192,19 @@ export default function DiarioForm({ inicial, onSalvo, onCancelar }) {
       .catch(() => setSoldados([]));
   }, []);
 
+  // Merge soldados vindos do contexto da escala (escala do dia + cabos das
+  // anterior/seguinte) na lista do form. Necessário para soldados, cujo
+  // endpoint /soldados só devolve o próprio cadastro — sem isso, os selects de
+  // monitor/atiradores ficariam vazios.
+  function mergeSoldados(novos) {
+    if (!novos?.length) return;
+    setSoldados((prev) => {
+      const ids = new Set(prev.map((s) => s.id));
+      const extras = novos.filter((s) => s.id && !ids.has(s.id));
+      return extras.length ? [...prev, ...extras] : prev;
+    });
+  }
+
   function set(campo, valor) {
     setFormState((f) => ({ ...f, [campo]: valor }));
   }
@@ -199,6 +216,7 @@ export default function DiarioForm({ inicial, onSalvo, onCancelar }) {
     try {
       const ctx = await diarioService.contexto(data);
       setContexto(ctx);
+      mergeSoldados(ctx.soldadosDoContexto);
       // Auto-preenche apenas o que vier da escala, sem sobrescrever o que o
       // usuário já tiver digitado manualmente (?? mantém o valor atual).
       if (!editando) {
@@ -234,7 +252,10 @@ export default function DiarioForm({ inicial, onSalvo, onCancelar }) {
   }, [editando]);
 
   useEffect(() => {
-    if (!editando) buscarContexto(form.data_servico);
+    // Sempre busca contexto ao montar — em modo edição usamos só os soldados
+    // retornados (para preencher os selects); o auto-fill em si só roda quando
+    // !editando, controlado dentro de buscarContexto.
+    buscarContexto(form.data_servico);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -485,7 +506,7 @@ export default function DiarioForm({ inicial, onSalvo, onCancelar }) {
                   />
                   {ats[i]?.ra && (
                     <span className={styles.postoTag}>
-                      RA {ats[i].ra} · {ats[i].nomeGuerra || nomeGuerraDe(ats[i].nome)}
+                      RA {raExibicao(ats[i].ra)} · {ats[i].nomeGuerra || nomeGuerraDe(ats[i].nome)}
                     </span>
                   )}
                 </div>

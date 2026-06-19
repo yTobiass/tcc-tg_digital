@@ -12,18 +12,24 @@ function turmaFiltroSQL(turmaId, alias = 's') {
 
 function presenca({ dataInicio, dataFim, turma, pelotao, soldadoId, turmaId } = {}) {
   const db = getDb();
+
+  // Todas as FALTAS vêm de registros_pontos — a fonte única, alimentada pela aba
+  // Faltas. O relatório distingue FALTAS COMUNS (tipo 'falta') de FALTAS NAS
+  // GUARDAS (tipo 'falta_guarda'), em colunas separadas.
+
+  // A "data da falta" cobre registros novos (data_referencia) e antigos (created_at).
+  const DATA_FALTA = "COALESCE(rp.data_referencia, date(rp.created_at))";
+
+  const faltParams = [];
+  let faltWhere = "rp.tipo IN ('falta', 'falta_guarda')";
+  if (dataInicio) { faltWhere += ` AND ${DATA_FALTA} >= ?`; faltParams.push(dataInicio); }
+  if (dataFim)    { faltWhere += ` AND ${DATA_FALTA} <= ?`; faltParams.push(dataFim); }
+
   let where = turmaFiltroSQL(turmaId);
-  const params = [];
-
-  if (soldadoId) { where += ' AND s.id = ?';        params.push(soldadoId); }
-  if (turma)     { where += ' AND s.turma = ?';      params.push(turma); }
-  if (pelotao)   { where += ' AND s.pelotao = ?';    params.push(pelotao); }
-
-  // Parâmetros para o JOIN (data range na cláusula ON para não excluir soldados sem registros)
-  const joinParams = [];
-  let joinWhere = '1=1';
-  if (dataInicio) { joinWhere += ' AND r.data >= ?'; joinParams.push(dataInicio); }
-  if (dataFim)    { joinWhere += ' AND r.data <= ?'; joinParams.push(dataFim); }
+  const whereParams = [];
+  if (soldadoId) { where += ' AND s.id = ?';      whereParams.push(soldadoId); }
+  if (turma)     { where += ' AND s.turma = ?';   whereParams.push(turma); }
+  if (pelotao)   { where += ' AND s.pelotao = ?'; whereParams.push(pelotao); }
 
   const sql = `
     SELECT
@@ -34,68 +40,22 @@ function presenca({ dataInicio, dataFim, turma, pelotao, soldadoId, turmaId } = 
       s.turma,
       s.status,
       s.graduacao,
-      COUNT(r.id)                                                                  AS total_registros,
-      COALESCE(SUM(CASE WHEN r.presente = 1 THEN 1 ELSE 0 END), 0)                AS presentes,
-      COALESCE(SUM(CASE WHEN r.presente = 0 THEN 1 ELSE 0 END), 0)                AS ausentes,
-      CASE
-        WHEN COUNT(r.id) > 0
-        THEN ROUND(100.0 * SUM(CASE WHEN r.presente = 1 THEN 1 ELSE 0 END) / COUNT(r.id), 1)
-        ELSE NULL
-      END AS taxa_presenca
+      COALESCE(falt.faltas, 0)        AS faltas,
+      COALESCE(falt.faltas_guarda, 0) AS faltas_guarda
     FROM soldados s
-    LEFT JOIN registros_treino r
-      ON r.soldado_id = s.id AND ${joinWhere}
+    LEFT JOIN (
+      SELECT rp.soldado_id,
+             SUM(CASE WHEN rp.tipo = 'falta'        THEN 1 ELSE 0 END) AS faltas,
+             SUM(CASE WHEN rp.tipo = 'falta_guarda' THEN 1 ELSE 0 END) AS faltas_guarda
+      FROM registros_pontos rp
+      WHERE ${faltWhere}
+      GROUP BY rp.soldado_id
+    ) falt ON falt.soldado_id = s.id
     WHERE ${where}
-    GROUP BY s.id
     ORDER BY s.nome_completo ASC
   `;
 
-  return db.prepare(sql).all(...params, ...joinParams);
-}
-
-function evolucao({ tipoTreinoId, soldadoId, dataInicio, dataFim, turmaId } = {}) {
-  const db = getDb();
-  const params = [];
-
-  // Filtra pela turma sempre (via JOIN soldados em ambas as consultas).
-  let where = `r.presente = 1 AND r.resultado IS NOT NULL AND ${turmaFiltroSQL(turmaId)}`;
-  if (tipoTreinoId) { where += ' AND r.tipo_treino_id = ?'; params.push(tipoTreinoId); }
-  if (soldadoId)    { where += ' AND r.soldado_id = ?';     params.push(soldadoId); }
-  if (dataInicio)   { where += ' AND r.data >= ?';          params.push(dataInicio); }
-  if (dataFim)      { where += ' AND r.data <= ?';          params.push(dataFim); }
-
-  if (soldadoId) {
-    // Resultados individuais por data
-    return db.prepare(`
-      SELECT
-        r.data,
-        r.resultado,
-        t.nome   AS tipo_nome,
-        t.unidade,
-        s.nome_completo AS soldado_nome
-      FROM registros_treino r
-      JOIN tipos_treino t ON t.id = r.tipo_treino_id
-      JOIN soldados s     ON s.id = r.soldado_id
-      WHERE ${where}
-      ORDER BY r.data ASC
-    `).all(...params);
-  }
-
-  // Média da turma por data
-  return db.prepare(`
-    SELECT
-      r.data,
-      ROUND(AVG(r.resultado), 1)  AS media_resultado,
-      COUNT(*)                    AS total_presentes,
-      t.nome                      AS tipo_nome,
-      t.unidade
-    FROM registros_treino r
-    JOIN tipos_treino t ON t.id = r.tipo_treino_id
-    JOIN soldados s     ON s.id = r.soldado_id
-    WHERE ${where}
-    GROUP BY r.data
-    ORDER BY r.data ASC
-  `).all(...params);
+  return db.prepare(sql).all(...faltParams, ...whereParams);
 }
 
 function efetivo({ turmaId } = {}) {
@@ -137,4 +97,4 @@ function efetivo({ turmaId } = {}) {
   return { soldados, resumo };
 }
 
-module.exports = { presenca, evolucao, efetivo };
+module.exports = { presenca, efetivo };

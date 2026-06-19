@@ -4,6 +4,7 @@ import { avaliacoesService } from '../../services/avaliacoesService';
 import { soldadosService }   from '../../services/soldadosService';
 import { BG_CONCEITO }       from '../../utils/tafCalculo';
 import { formatarData }      from '../../utils/data';
+import { raExibicao }        from '../../utils/nomes';
 import AvaliacaoFormModal    from './AvaliacaoFormModal';
 import EvolucaoModal         from './EvolucaoModal';
 import styles from './Avaliacoes.module.scss';
@@ -117,6 +118,7 @@ export default function Avaliacoes() {
                 <th className={styles.centered}>Corrida (m)</th>
                 <th className={styles.centered}>Flexão</th>
                 <th className={styles.centered}>Abdominal</th>
+                <th className={styles.centered}>Barra</th>
                 <th className={styles.centered}>Nota</th>
                 <th>Conceito</th>
                 <th></th>
@@ -127,12 +129,13 @@ export default function Avaliacoes() {
                 <tr key={av.id}>
                   <td>
                     <p className={styles.soldadoName}>{av.nome}</p>
-                    <p className={styles.soldadoRa}>{av.ra}</p>
+                    <p className={styles.soldadoRa}>{raExibicao(av.ra)}</p>
                   </td>
                   <td>{formatarData(av.data)}</td>
                   <td className={styles.centered}>{av.corrida}</td>
                   <td className={styles.centered}>{av.flexao}</td>
                   <td className={styles.centered}>{av.abdominal}</td>
+                  <td className={styles.centered}>{av.barra_resultado ?? '—'}</td>
                   <td className={`${styles.centered} ${styles.boldValue}`}>{av.nota_final}</td>
                   <td><BadgeConceito conceito={av.conceito} /></td>
                   <td>

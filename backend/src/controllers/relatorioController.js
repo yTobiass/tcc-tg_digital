@@ -16,21 +16,9 @@ function relatorioPresenca(req, res) {
   res.json(dados);
 }
 
-function relatorioEvolucao(req, res) {
-  const { tipo_treino_id, soldado_id, data_inicio, data_fim, turma_id } = req.query;
-  const dados = model.evolucao({
-    tipoTreinoId: tipo_treino_id ? Number(tipo_treino_id) : null,
-    soldadoId:    soldado_id    ? Number(soldado_id)    : null,
-    dataInicio:   data_inicio   || null,
-    dataFim:      data_fim      || null,
-    turmaId:      turma_id ? Number(turma_id) : null,
-  });
-  res.json(dados);
-}
-
 function relatorioEfetivo(req, res) {
   const { turma_id } = req.query;
   res.json(model.efetivo({ turmaId: turma_id ? Number(turma_id) : null }));
 }
 
-module.exports = { relatorioPresenca, relatorioEvolucao, relatorioEfetivo };
+module.exports = { relatorioPresenca, relatorioEfetivo };

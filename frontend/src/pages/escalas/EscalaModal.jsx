@@ -3,6 +3,7 @@ import { Modal }          from '../../components/ui/Modal';
 import { escalasService } from '../../services/escalasService';
 import { gerarPdfEscala } from '../../utils/escalaPDF';
 import { formatarData }   from '../../utils/data';
+import { nomeExibicao, raExibicao }   from '../../utils/nomes';
 import styles from './EscalaModal.module.scss';
 
 const TIPO_LABEL = { verde: 'Verde', preta: 'Preta', vermelha: 'Vermelha' };
@@ -82,8 +83,8 @@ function DetalheEscala({ escala, podeEditar = true, onFechar, onAtualizar }) {
     return (
       <div className={styles.pessoalRow} style={{ flexWrap: 'wrap' }}>
         <span className={`${styles.funcaoBadge} ${badgeClass}`}>{badgeLabel}</span>
-        <span className={styles.membroNome}>{membro.nome_completo}</span>
-        <span className={styles.membroRa}>{membro.ra}</span>
+        <span className={styles.membroNome}>{nomeExibicao(membro)}</span>
+        <span className={styles.membroRa}>{raExibicao(membro.ra)}</span>
         {membro.motivo_repeticao && (
           <span className={styles.membroRa} title="Motivo da troca">↻ {membro.motivo_repeticao}</span>
         )}
@@ -98,7 +99,7 @@ function DetalheEscala({ escala, podeEditar = true, onFechar, onAtualizar }) {
             <select value={novoId} onChange={(e) => setNovoId(e.target.value)} className={styles.membroSelect}>
               <option value="">Selecione o substituto ({grad})…</option>
               {opcoes.map((s) => (
-                <option key={s.soldado_id} value={s.soldado_id}>{s.nome_completo} — {s.ra}</option>
+                <option key={s.soldado_id} value={s.soldado_id}>{nomeExibicao(s)} — {raExibicao(s.ra)}</option>
               ))}
             </select>
             <input type="text" value={motivo} maxLength={200}
@@ -212,8 +213,8 @@ function CriarEscala({ dataInicial, tiposJaUsados = [], onFechar, onCriada }) {
         setSugestao(res);
         setTodos(res.todosSoldados ?? []);
         const novos = [];
-        if (res.cabo) novos.push({ soldado_id: res.cabo.soldado_id, funcao: 'cabo', nome: res.cabo.nome_completo, ra: res.cabo.ra });
-        (res.atiradores ?? []).forEach((at) => novos.push({ soldado_id: at.soldado_id, funcao: 'atirador', nome: at.nome_completo, ra: at.ra }));
+        if (res.cabo) novos.push({ soldado_id: res.cabo.soldado_id, funcao: 'cabo', nome: nomeExibicao(res.cabo), ra: res.cabo.ra });
+        (res.atiradores ?? []).forEach((at) => novos.push({ soldado_id: at.soldado_id, funcao: 'atirador', nome: nomeExibicao(at), ra: at.ra }));
         setMembros(novos);
       })
       .catch((e) => {
@@ -247,7 +248,7 @@ function CriarEscala({ dataInicial, tiposJaUsados = [], onFechar, onCriada }) {
     if (!sol) return;
     setMembros((prev) => {
       const n = [...prev];
-      n[idx] = { ...n[idx], soldado_id: sol.soldado_id, nome: sol.nome_completo, ra: sol.ra };
+      n[idx] = { ...n[idx], soldado_id: sol.soldado_id, nome: nomeExibicao(sol), ra: sol.ra };
       return n;
     });
   }
@@ -264,7 +265,7 @@ function CriarEscala({ dataInicial, tiposJaUsados = [], onFechar, onCriada }) {
       } else {
         const livre = todos.find((s) => s.graduacao === grad && !usados.has(s.soldado_id));
         n[idx] = livre
-          ? { soldado_id: livre.soldado_id, funcao: novaFuncao, nome: livre.nome_completo, ra: livre.ra }
+          ? { soldado_id: livre.soldado_id, funcao: novaFuncao, nome: nomeExibicao(livre), ra: livre.ra }
           : { ...n[idx], funcao: novaFuncao };
       }
       return n;
@@ -282,7 +283,7 @@ function CriarEscala({ dataInicial, tiposJaUsados = [], onFechar, onCriada }) {
     if (!livre) return;
     setMembros((prev) => [
       ...prev,
-      { soldado_id: livre.soldado_id, funcao, nome: livre.nome_completo, ra: livre.ra },
+      { soldado_id: livre.soldado_id, funcao, nome: nomeExibicao(livre), ra: livre.ra },
     ]);
   }
 
@@ -408,12 +409,12 @@ function CriarEscala({ dataInicial, tiposJaUsados = [], onFechar, onCriada }) {
                       value={m.soldado_id}
                       onChange={(e) => trocarMembro(i, Number(e.target.value))}
                     >
-                      <option value={m.soldado_id}>{m.nome} — {m.ra}</option>
+                      <option value={m.soldado_id}>{m.nome} — {raExibicao(m.ra)}</option>
                       {pool
                         .filter((s) => s.soldado_id !== m.soldado_id)
                         .map((s) => (
                           <option key={s.soldado_id} value={s.soldado_id}>
-                            {s.nome_completo} — {s.ra}
+                            {nomeExibicao(s)} — {raExibicao(s.ra)}
                           </option>
                         ))}
                     </select>

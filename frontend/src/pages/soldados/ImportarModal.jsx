@@ -52,8 +52,9 @@ export function ImportarModal({ onImportado, onFechar }) {
           <div>
             <p className={styles.modeloTitle}>Modelo de planilha</p>
             <p className={styles.modeloDesc}>
-              A planilha tem apenas a coluna <strong>Nome Completo</strong>. RA (sequencial), pelotão,
-              graduação (atirador) e turma são preenchidos automaticamente.
+              A planilha tem <strong>Nome Completo</strong> e <strong>Nome de Guerra</strong> (obrigatórios)
+              e <strong>Celular</strong> (opcional). RA (sequencial), pelotão, graduação (atirador) e turma
+              são preenchidos automaticamente.
             </p>
           </div>
           <button onClick={handleBaixarModelo} disabled={baixando} className={styles.downloadBtn}>

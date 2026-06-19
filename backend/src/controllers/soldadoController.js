@@ -1,17 +1,42 @@
 const { z } = require('zod');
 const XLSX = require('xlsx');
 const model = require('../models/soldadoModel');
+const escalas = require('../models/escalasModel');
 
 const schemaSoldado = z.object({
   ra: z.string().min(1, 'RA é obrigatório'),
   nome_completo: z.string().min(1, 'Nome completo é obrigatório'),
+  nome_guerra: z.string({ required_error: 'O nome de guerra é obrigatório.' }).min(1, 'O nome de guerra é obrigatório.'),
   data_nascimento: z.string().nullable().optional(),
   data_incorporacao: z.string().nullable().optional(),
   pelotao: z.string().nullable().optional(),
   turma: z.string().nullable().optional(),
+  celular: z.string().nullable().optional(),
   graduacao: z.enum(['atirador', 'cabo']).default('atirador'),
   status: z.enum(['ativo', 'licenca', 'baixado', 'dispensado']).default('ativo'),
 });
+
+// Celular é opcional; quando preenchido, aceita apenas números, parênteses,
+// traço e espaço (ex.: "(19) 99999-1234").
+const CELULAR_RE = /^[\d()\-\s]+$/;
+function celularValido(celular) {
+  if (celular == null || String(celular).trim() === '') return true;
+  return CELULAR_RE.test(String(celular).trim());
+}
+
+// Validações de negócio compartilhadas por cadastro/edição. Retorna a mensagem
+// de erro (string) ou null se estiver tudo certo. `turmaId` e `soldadoId`
+// definem o escopo da checagem de RA único por turma.
+function validarSoldado(dados, turmaId, soldadoId = null) {
+  if (!dados.nome_guerra.trim()) return 'O nome de guerra é obrigatório.';
+  if (!celularValido(dados.celular)) {
+    return 'Celular inválido: use apenas números, parênteses, traço e espaço.';
+  }
+  if (model.raEmUso(dados.ra, turmaId, soldadoId)) {
+    return `Já existe um soldado com o RA ${dados.ra} nesta turma.`;
+  }
+  return null;
+}
 
 function listar(req, res) {
   // Regra de Negócio nº 7: um soldado só enxerga o próprio cadastro.
@@ -35,6 +60,9 @@ function buscarPorId(req, res) {
   res.json(soldado);
 }
 
+const TIPOS_GUARDA = new Set(['verde', 'preta', 'vermelha']);
+const SITUACOES_GUARDA = new Set(['agendada', 'concluida', 'cancelada']);
+
 function guardas(req, res) {
   const id = Number(req.params.id);
   // Regra de Negócio nº 7: um soldado só acessa o próprio histórico.
@@ -42,28 +70,59 @@ function guardas(req, res) {
     return res.status(403).json({ error: 'Acesso negado.' });
   }
   if (!model.buscarPorId(id)) return res.status(404).json({ error: 'Soldado não encontrado.' });
-  res.json(model.guardasDoSoldado(id));
+
+  // Filtros opcionais — valores inválidos são ignorados (cai no padrão "todos").
+  const tipo     = TIPOS_GUARDA.has(req.query.tipo)         ? req.query.tipo     : null;
+  const situacao = SITUACOES_GUARDA.has(req.query.situacao) ? req.query.situacao : null;
+
+  res.json(model.guardasDoSoldado(id, { tipo, situacao }));
 }
 
 function criar(req, res) {
   const resultado = schemaSoldado.safeParse(req.body);
   if (!resultado.success) return res.status(400).json({ error: resultado.error.issues[0].message });
+
+  const dados = resultado.data;
+  const erro = validarSoldado(dados, model.turmaAtivaId());
+  if (erro) return res.status(400).json({ error: erro });
+
   try {
-    res.status(201).json(model.criar(resultado.data));
+    res.status(201).json(model.criar(dados));
   } catch (err) {
-    if (err.message.includes('UNIQUE')) return res.status(409).json({ error: 'Já existe um soldado com este RA.' });
+    // Rede de segurança: o índice composto (ra, turma_id) também barra duplicatas.
+    if (err.message.includes('UNIQUE')) {
+      return res.status(400).json({ error: `Já existe um soldado com o RA ${dados.ra} nesta turma.` });
+    }
     throw err;
   }
 }
 
 function atualizar(req, res) {
-  if (!model.buscarPorId(Number(req.params.id))) return res.status(404).json({ error: 'Soldado não encontrado.' });
+  const id = Number(req.params.id);
+  const existente = model.buscarPorId(id);
+  if (!existente) return res.status(404).json({ error: 'Soldado não encontrado.' });
+
   const resultado = schemaSoldado.safeParse(req.body);
   if (!resultado.success) return res.status(400).json({ error: resultado.error.issues[0].message });
+
+  const dados = resultado.data;
+  // Valida o RA único dentro da própria turma do soldado, ignorando ele mesmo.
+  const erro = validarSoldado(dados, existente.turma_id, id);
+  if (erro) return res.status(400).json({ error: erro });
+
   try {
-    res.json(model.atualizar(Number(req.params.id), resultado.data));
+    const atualizado = model.atualizar(id, dados);
+    // Mudança de graduação (atirador↔cabo) ou de status afeta a composição das
+    // filas de rotação: ressincroniza para refletir o novo efetivo de cada fila
+    // (promovidos entram, rebaixados/inativos saem da fila onde não pertencem).
+    if (existente.graduacao !== atualizado.graduacao || existente.status !== atualizado.status) {
+      escalas.ressincronizarFilas();
+    }
+    res.json(atualizado);
   } catch (err) {
-    if (err.message.includes('UNIQUE')) return res.status(409).json({ error: 'Já existe um soldado com este RA.' });
+    if (err.message.includes('UNIQUE')) {
+      return res.status(400).json({ error: `Já existe um soldado com o RA ${dados.ra} nesta turma.` });
+    }
     throw err;
   }
 }
@@ -101,22 +160,32 @@ function importar(req, res) {
 
   if (linhas.length === 0) return res.status(400).json({ error: 'Planilha sem dados.' });
 
-  // A planilha tem apenas a coluna "Nome Completo"; o resto é preenchido
-  // automaticamente (RA sequencial, pelotão pelo RA, graduação atirador, turma ativa).
+  // A planilha tem Nome Completo (obrigatório), Nome de Guerra (obrigatório) e
+  // Celular (opcional); o resto é preenchido automaticamente (RA sequencial,
+  // pelotão pelo RA, graduação atirador, turma ativa).
   const erros = [];
-  const nomes = [];
+  const registros = [];
 
   linhas.forEach((linha, i) => {
     const n = i + 2;
     const nome = String(linha['Nome Completo'] || '').trim();
-    if (!nome) { erros.push(`Linha ${n}: Nome Completo obrigatório.`); return; }
-    nomes.push(nome);
+    const guerra = String(linha['Nome de Guerra'] || '').trim();
+    // O cabeçalho do modelo é "Celular (opcional)"; aceita "Celular" também.
+    const celular = String(linha['Celular (opcional)'] ?? linha['Celular'] ?? '').trim();
+
+    if (!nome)   { erros.push(`Linha ${n}: Nome Completo obrigatório.`); return; }
+    if (!guerra) { erros.push(`Linha ${n}: Nome de Guerra obrigatório.`); return; }
+    if (!celularValido(celular)) {
+      erros.push(`Linha ${n}: Celular inválido (use apenas números, parênteses, traço e espaço).`);
+      return;
+    }
+    registros.push({ nome_completo: nome, nome_guerra: guerra, celular: celular || null });
   });
 
-  if (nomes.length === 0) return res.status(400).json({ error: 'Nenhum registro válido.', erros });
+  if (registros.length === 0) return res.status(400).json({ error: 'Nenhum registro válido.', erros });
 
   try {
-    const importados = model.importarLote(nomes, dataIncorporacao);
+    const importados = model.importarLote(registros, dataIncorporacao);
     res.json({ importados, erros });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao salvar dados.', detalhe: err.message });
@@ -125,13 +194,14 @@ function importar(req, res) {
 
 function modeloPlanilha(_req, res) {
   const wb = XLSX.utils.book_new();
-  // Apenas a coluna Nome Completo — RA, pelotão, graduação, data de incorporação
-  // e turma são preenchidos automaticamente na importação.
+  // Nome Completo e Nome de Guerra são obrigatórios; Celular é opcional.
+  // RA, pelotão, graduação, data de incorporação e turma são preenchidos
+  // automaticamente na importação.
   const ws = XLSX.utils.json_to_sheet([
-    { 'Nome Completo': 'SILVA, João Pedro' },
-    { 'Nome Completo': 'SOUZA, Carlos Eduardo' },
+    { 'Nome Completo': 'SILVA, João Pedro',     'Nome de Guerra': 'SILVA', 'Celular (opcional)': '(19) 99999-1234' },
+    { 'Nome Completo': 'SOUZA, Carlos Eduardo',  'Nome de Guerra': 'SOUZA', 'Celular (opcional)': '' },
   ]);
-  ws['!cols'] = [{ wch: 32 }];
+  ws['!cols'] = [{ wch: 32 }, { wch: 18 }, { wch: 20 }];
   XLSX.utils.book_append_sheet(wb, ws, 'Soldados');
   const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
   res.setHeader('Content-Disposition', 'attachment; filename="modelo_soldados.xlsx"');

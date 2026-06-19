@@ -17,6 +17,12 @@ export const TABELAS = {
     { min: 25, pts: 55 },  { min: 20, pts: 45 }, { min: 15, pts: 35 },
     { min: 0,  pts: 20 },
   ],
+  barra: [
+    { min: 15, pts: 100 }, { min: 13, pts: 95 }, { min: 11, pts: 90 },
+    { min: 9,  pts: 82 },  { min: 7,  pts: 74 }, { min: 6,  pts: 65 },
+    { min: 5,  pts: 55 },  { min: 3,  pts: 45 }, { min: 2,  pts: 35 },
+    { min: 0,  pts: 20 },
+  ],
 };
 
 export function pontuar(valor, chave) {
@@ -34,12 +40,13 @@ export function calcularConceito(nota) {
   return 'Insuficiente';
 }
 
-export function calcularTAF(corrida, flexao, abdominal) {
+export function calcularTAF(corrida, flexao, abdominal, barra) {
   const ptsCorrida   = pontuar(corrida,   'corrida');
   const ptsFlexao    = pontuar(flexao,    'flexao');
   const ptsAbdominal = pontuar(abdominal, 'abdominal');
-  const nota         = Math.round((ptsCorrida + ptsFlexao + ptsAbdominal) / 3);
-  return { nota, conceito: calcularConceito(nota), ptsCorrida, ptsFlexao, ptsAbdominal };
+  const ptsBarra     = pontuar(barra,     'barra');
+  const nota         = Math.round((ptsCorrida + ptsFlexao + ptsAbdominal + ptsBarra) / 4);
+  return { nota, conceito: calcularConceito(nota), ptsCorrida, ptsFlexao, ptsAbdominal, ptsBarra };
 }
 
 export const COR_CONCEITO = {

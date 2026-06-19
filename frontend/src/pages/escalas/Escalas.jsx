@@ -2,6 +2,7 @@
 import { Layout }         from '../../components/layout/Layout';
 import { escalasService } from '../../services/escalasService';
 import { formatarData }   from '../../utils/data';
+import { raExibicao }     from '../../utils/nomes';
 import { useAuth }        from '../../hooks/useAuth';
 import EscalaModal        from './EscalaModal';
 import styles from './Escalas.module.scss';
@@ -165,7 +166,7 @@ function FilaView() {
                   <td><span className={styles.posBubble}>{row.posicao}</span></td>
                   <td>
                     <p className={styles.soldadoName}>{row.nome_completo}</p>
-                    <p className={styles.soldadoRa}>{row.ra}</p>
+                    <p className={styles.soldadoRa}>{raExibicao(row.ra)}</p>
                   </td>
                   <td>
                     <span className={`${styles.gradBadge} ${styles[`gradBadge--${row.graduacao}`] ?? ''}`}>

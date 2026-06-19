@@ -6,7 +6,6 @@ import styles from './Layout.module.scss';
 const NAV_SARGENTO = [
   { to: '/dashboard',   label: 'Dashboard' },
   { to: '/soldados',    label: 'Soldados' },
-  { to: '/treinos',     label: 'Treinos' },
   { to: '/avaliacoes',  label: 'TAF' },
   { to: '/diario',      label: 'Diário' },
   { to: '/escalas',     label: 'Escalas' },

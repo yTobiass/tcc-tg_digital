@@ -9,6 +9,13 @@ function nomeGuerra(nomeCompleto = '') {
   return partes[partes.length - 1].toUpperCase();
 }
 
+// Nome de guerra de exibição: usa a coluna nome_guerra (preenchida no cadastro)
+// e, na ausência dela (dados antigos), deriva do nome completo.
+function nomeDeGuerra(soldado) {
+  const guerra = (soldado?.nome_guerra || '').trim();
+  return guerra || nomeGuerra(soldado?.nome_completo);
+}
+
 function listar({ limit = 50, offset = 0 } = {}) {
   return getDb().prepare(`
     SELECT dr.id, dr.data_servico, dr.data_para, dr.parada_diaria_status,
@@ -150,7 +157,7 @@ function contexto(data) {
 
   function membros(escalaId) {
     return db.prepare(`
-      SELECT s.ra, s.nome_completo, em.funcao
+      SELECT s.id, s.ra, s.nome_completo, s.nome_guerra, s.graduacao, em.funcao
       FROM escala_membros em
       JOIN soldados s ON s.id = em.soldado_id
       WHERE em.escala_id = ?
@@ -178,33 +185,63 @@ function contexto(data) {
   function caboDeEscala(escalaId) {
     if (!escalaId) return null;
     const m = db.prepare(`
-      SELECT s.ra, s.nome_completo
+      SELECT s.id, s.ra, s.nome_completo, s.nome_guerra, s.graduacao
       FROM escala_membros em
       JOIN soldados s ON s.id = em.soldado_id
       WHERE em.escala_id = ? AND em.funcao = 'cabo'
       LIMIT 1
     `).get(escalaId);
     if (!m) return null;
-    return { ra: m.ra, nome: m.nome_completo, nomeGuerra: nomeGuerra(m.nome_completo) };
+    return { id: m.id, ra: m.ra, nome: m.nome_completo, nomeGuerra: nomeDeGuerra(m), graduacao: m.graduacao };
   }
 
   let escala = null;
+  const membrosDoDia = escalaDia ? membros(escalaDia.id) : [];
   if (escalaDia) {
-    const todos = membros(escalaDia.id);
-    const cabo = todos.find((m) => m.funcao === 'cabo');
-    const ats  = todos.filter((m) => m.funcao === 'atirador');
+    const cabo = membrosDoDia.find((m) => m.funcao === 'cabo');
+    const ats  = membrosDoDia.filter((m) => m.funcao === 'atirador');
     escala = {
       id: escalaDia.id,
       tipo: escalaDia.tipo,
-      cabo: cabo ? { ra: cabo.ra, nome: cabo.nome_completo, nomeGuerra: nomeGuerra(cabo.nome_completo) } : null,
-      atiradores: ats.map((a) => ({ ra: a.ra, nome: a.nome_completo, nomeGuerra: nomeGuerra(a.nome_completo) })),
+      cabo: cabo
+        ? { id: cabo.id, ra: cabo.ra, nome: cabo.nome_completo, nomeGuerra: nomeDeGuerra(cabo), graduacao: cabo.graduacao }
+        : null,
+      atiradores: ats.map((a) => ({
+        id: a.id, ra: a.ra, nome: a.nome_completo, nomeGuerra: nomeDeGuerra(a), graduacao: a.graduacao,
+      })),
     };
   }
 
+  const ctxAnterior = escalaAnterior ? { id: escalaAnterior.id, cabo: caboDeEscala(escalaAnterior.id) } : null;
+  const ctxSeguinte = escalaSeguinte ? { id: escalaSeguinte.id, cabo: caboDeEscala(escalaSeguinte.id) } : null;
+
+  // Lista achatada de soldados envolvidos no preenchimento do diário (escala do
+  // dia + cabos das anterior/seguinte), no formato que o frontend usa nos
+  // selects. Inclui id e graduacao para o SoldadoSelect funcionar mesmo quando
+  // o usuário não tem permissão para listar todos os soldados (caso do soldado).
+  const soldadosDoContexto = [];
+  const vistos = new Set();
+  function adicionar(m) {
+    if (!m || !m.id || vistos.has(m.id)) return;
+    vistos.add(m.id);
+    soldadosDoContexto.push({
+      id: m.id,
+      ra: m.ra,
+      nome_completo: m.nome ?? m.nome_completo,
+      nome_guerra: m.nomeGuerra ?? m.nome_guerra ?? '',
+      graduacao: m.graduacao ?? 'atirador',
+      status: 'ativo',
+    });
+  }
+  membrosDoDia.forEach(adicionar);
+  if (ctxAnterior?.cabo) adicionar(ctxAnterior.cabo);
+  if (ctxSeguinte?.cabo) adicionar(ctxSeguinte.cabo);
+
   return {
     escala,
-    escalaAnterior: escalaAnterior ? { id: escalaAnterior.id, cabo: caboDeEscala(escalaAnterior.id) } : null,
-    escalaSeguinte: escalaSeguinte ? { id: escalaSeguinte.id, cabo: caboDeEscala(escalaSeguinte.id) } : null,
+    escalaAnterior: ctxAnterior,
+    escalaSeguinte: ctxSeguinte,
+    soldadosDoContexto,
   };
 }
 

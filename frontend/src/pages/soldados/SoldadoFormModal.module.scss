@@ -25,6 +25,18 @@
   font-size: var(--fs-sm);
 }
 
+.fieldError {
+  margin: 4px 0 0;
+  font-size: var(--fs-xs);
+  color: var(--clr-red-600);
+}
+
+.fieldHelp {
+  margin: 4px 0 0;
+  font-size: var(--fs-xs);
+  color: var(--clr-gray-600);
+}
+
 .footer {
   display: flex;
   justify-content: flex-end;

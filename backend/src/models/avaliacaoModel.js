@@ -23,26 +23,26 @@ function buscarPorId(id) {
   `).get(id);
 }
 
-function criar({ soldado_id, data, corrida, flexao, abdominal, observacoes }) {
-  const { nota, conceito, ptsCorrida, ptsFlexao, ptsAbdominal } = calcularTAF(corrida, flexao, abdominal);
+function criar({ soldado_id, data, corrida, flexao, abdominal, barra_resultado, observacoes }) {
+  const { nota, conceito, ptsCorrida, ptsFlexao, ptsAbdominal, ptsBarra } = calcularTAF(corrida, flexao, abdominal, barra_resultado);
   const stmt = getDb().prepare(`
     INSERT INTO avaliacoes
-      (soldado_id, data, corrida, flexao, abdominal, pts_corrida, pts_flexao, pts_abdominal, nota_final, conceito, observacoes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (soldado_id, data, corrida, flexao, abdominal, barra_resultado, pts_corrida, pts_flexao, pts_abdominal, pts_barra, nota_final, conceito, observacoes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
-  const info = stmt.run(soldado_id, data, corrida, flexao, abdominal, ptsCorrida, ptsFlexao, ptsAbdominal, nota, conceito, observacoes ?? null);
+  const info = stmt.run(soldado_id, data, corrida, flexao, abdominal, barra_resultado, ptsCorrida, ptsFlexao, ptsAbdominal, ptsBarra, nota, conceito, observacoes ?? null);
   return buscarPorId(info.lastInsertRowid);
 }
 
-function atualizar(id, { data, corrida, flexao, abdominal, observacoes }) {
-  const { nota, conceito, ptsCorrida, ptsFlexao, ptsAbdominal } = calcularTAF(corrida, flexao, abdominal);
+function atualizar(id, { data, corrida, flexao, abdominal, barra_resultado, observacoes }) {
+  const { nota, conceito, ptsCorrida, ptsFlexao, ptsAbdominal, ptsBarra } = calcularTAF(corrida, flexao, abdominal, barra_resultado);
   getDb().prepare(`
     UPDATE avaliacoes SET
-      data = ?, corrida = ?, flexao = ?, abdominal = ?,
-      pts_corrida = ?, pts_flexao = ?, pts_abdominal = ?,
+      data = ?, corrida = ?, flexao = ?, abdominal = ?, barra_resultado = ?,
+      pts_corrida = ?, pts_flexao = ?, pts_abdominal = ?, pts_barra = ?,
       nota_final = ?, conceito = ?, observacoes = ?
     WHERE id = ?
-  `).run(data, corrida, flexao, abdominal, ptsCorrida, ptsFlexao, ptsAbdominal, nota, conceito, observacoes ?? null, id);
+  `).run(data, corrida, flexao, abdominal, barra_resultado, ptsCorrida, ptsFlexao, ptsAbdominal, ptsBarra, nota, conceito, observacoes ?? null, id);
   return buscarPorId(id);
 }
 
@@ -52,8 +52,8 @@ function remover(id) {
 
 function evolucao(soldadoId) {
   return getDb().prepare(`
-    SELECT data, nota_final, conceito, corrida, flexao, abdominal,
-           pts_corrida, pts_flexao, pts_abdominal
+    SELECT data, nota_final, conceito, corrida, flexao, abdominal, barra_resultado,
+           pts_corrida, pts_flexao, pts_abdominal, pts_barra
     FROM avaliacoes
     WHERE soldado_id = ?
     ORDER BY data ASC

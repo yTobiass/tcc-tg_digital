@@ -6,6 +6,7 @@ import { soldadosService } from '../../services/soldadosService';
 import { useGuardasSoldado } from '../../hooks/useGuardas';
 import { DisciplinaSecao } from './DisciplinaSecao';
 import { formatarData } from '../../utils/data';
+import { nomeExibicao, raExibicao } from '../../utils/nomes';
 
 const TIPO_BADGE_STYLE = {
   verde:    { background: '#dcfce7', color: '#166534' },
@@ -32,7 +33,12 @@ export default function PerfilSoldado() {
   const [soldado, setSoldado] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState(null);
-  const { historico: guardas, totais } = useGuardasSoldado(soldadoId);
+  const [filtroTipo, setFiltroTipo] = useState('');
+  const [filtroSituacao, setFiltroSituacao] = useState('');
+  const { historico: guardas, totais } = useGuardasSoldado(soldadoId, {
+    tipo:     filtroTipo     || undefined,
+    situacao: filtroSituacao || undefined,
+  });
 
   const carregar = useCallback(() => {
     setCarregando(true);
@@ -64,13 +70,15 @@ export default function PerfilSoldado() {
         {/* Coluna esquerda: identidade */}
         <div style={{ ...card }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-            <h1 style={{ fontSize: 18, fontWeight: 700, color: '#1f2937', margin: 0 }}>{soldado.nome_completo}</h1>
+            <h1 style={{ fontSize: 18, fontWeight: 700, color: '#1f2937', margin: 0 }}>{nomeExibicao(soldado)}</h1>
             <Badge value={soldado.status} />
           </div>
-          <p style={{ fontFamily: 'ui-monospace, monospace', color: '#6b7280', margin: '0 0 12px' }}>RA {soldado.ra}</p>
+          <p style={{ fontFamily: 'ui-monospace, monospace', color: '#6b7280', margin: '0 0 12px' }}>RA {raExibicao(soldado.ra)}</p>
+          <Info label="Nome completo" value={soldado.nome_completo} />
           <Info label="Pelotão" value={soldado.pelotao} />
           <Info label="Turma" value={soldado.turma} />
           <Info label="Graduação" value={soldado.graduacao === 'cabo' ? 'Cabo' : 'Atirador'} />
+          <Info label="Celular" value={soldado.celular || '—'} />
           <Info label="Incorporação" value={soldado.data_incorporacao ? formatarData(soldado.data_incorporacao) : null} />
           <Info label="Nascimento" value={soldado.data_nascimento ? formatarData(soldado.data_nascimento) : null} />
 
@@ -95,8 +103,42 @@ export default function PerfilSoldado() {
 
           <div style={{ ...card }}>
             <h2 style={cardTitle}>Histórico de Guardas</h2>
+
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 12, fontSize: 13 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#374151' }}>
+                Tipo:
+                <select
+                  value={filtroTipo}
+                  onChange={(e) => setFiltroTipo(e.target.value)}
+                  style={{ padding: '4px 8px', border: '1px solid #d1d5db', borderRadius: 6, background: '#fff', fontSize: 13 }}
+                >
+                  <option value="">Todos</option>
+                  <option value="verde">Verde</option>
+                  <option value="preta">Preta</option>
+                  <option value="vermelha">Vermelha</option>
+                </select>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#374151' }}>
+                Situação:
+                <select
+                  value={filtroSituacao}
+                  onChange={(e) => setFiltroSituacao(e.target.value)}
+                  style={{ padding: '4px 8px', border: '1px solid #d1d5db', borderRadius: 6, background: '#fff', fontSize: 13 }}
+                >
+                  <option value="">Todas</option>
+                  <option value="agendada">Agendada</option>
+                  <option value="concluida">Concluída</option>
+                  <option value="cancelada">Cancelada</option>
+                </select>
+              </label>
+            </div>
+
             {guardas.length === 0 ? (
-              <p style={{ color: '#9ca3af', fontSize: 14 }}>Nenhuma guarda registrada.</p>
+              <p style={{ color: '#9ca3af', fontSize: 14 }}>
+                {filtroTipo || filtroSituacao
+                  ? 'Nenhuma guarda encontrada com esses filtros.'
+                  : 'Nenhuma guarda registrada.'}
+              </p>
             ) : (
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>

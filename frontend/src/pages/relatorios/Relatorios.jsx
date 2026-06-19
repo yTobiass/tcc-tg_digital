@@ -1,27 +1,15 @@
 import { useState, useEffect } from 'react';
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer,
-} from 'recharts';
 import { Layout }             from '../../components/layout/Layout';
 import { relatoriosService }  from '../../services/relatoriosService';
-import { treinosService }     from '../../services/treinosService';
-import { soldadosService }    from '../../services/soldadosService';
 import { turmasService }      from '../../services/turmasService';
 import { gerarPdfPresenca }   from '../../utils/relatoriosPDF';
-import { formatarData, hoje } from '../../utils/data';
+import { hoje }               from '../../utils/data';
+import { raExibicao }         from '../../utils/nomes';
 import styles from './Relatorios.module.scss';
 
 function primeiroDiaMes() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
-}
-
-function taxaKey(taxa) {
-  if (taxa == null) return null;
-  if (taxa >= 75) return 'high';
-  if (taxa >= 50) return 'medium';
-  return 'low';
 }
 
 const STATUS_BADGE_STYLE = {
@@ -75,16 +63,13 @@ function AbaPresenca({ turmaId }) {
     gerarPdfPresenca({ dados, dataInicio, dataFim, filtros: { turma, pelotao } });
   }
 
-  const totalPres = dados?.reduce((a, s) => a + (s.presentes       ?? 0), 0) ?? 0;
-  const totalFalt = dados?.reduce((a, s) => a + (s.ausentes        ?? 0), 0) ?? 0;
-  const totalReg  = dados?.reduce((a, s) => a + (s.total_registros ?? 0), 0) ?? 0;
-  const taxa      = totalReg > 0 ? Math.round(100 * totalPres / totalReg) : null;
+  const totalFalt   = dados?.reduce((a, s) => a + (s.faltas        ?? 0), 0) ?? 0;
+  const totalFaltGd = dados?.reduce((a, s) => a + (s.faltas_guarda ?? 0), 0) ?? 0;
 
   const summaryItems = [
-    { label: 'Soldados',   value: dados?.length ?? 0, key: 'gray' },
-    { label: 'Presenças',  value: totalPres,            key: 'green' },
-    { label: 'Faltas',     value: totalFalt,            key: 'red' },
-    { label: 'Taxa geral', value: taxa != null ? `${taxa}%` : '—', key: taxa != null && taxa >= 75 ? 'green' : 'red' },
+    { label: 'Soldados',           value: dados?.length ?? 0, key: 'gray' },
+    { label: 'Faltas',             value: totalFalt,          key: 'red' },
+    { label: 'Faltas nas Guardas', value: totalFaltGd,        key: 'red' },
   ];
 
   return (
@@ -144,207 +129,25 @@ function AbaPresenca({ turmaId }) {
                     <th>RA</th>
                     <th>Pelotão</th>
                     <th>Turma</th>
-                    <th className={styles.centered}>Pres.</th>
-                    <th className={styles.centered}>Falt.</th>
-                    <th className={styles.centered}>Total</th>
-                    <th className={styles.centered}>Taxa</th>
+                    <th className={styles.centered}>Faltas</th>
+                    <th className={styles.centered}>Faltas nas Guardas</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {dados.map((s) => {
-                    const tk = taxaKey(s.taxa_presenca);
-                    return (
-                      <tr key={s.soldado_id}>
-                        <td>{s.nome_completo}</td>
-                        <td className={styles.monoCell}>{s.ra}</td>
-                        <td>{s.pelotao || '—'}</td>
-                        <td>{s.turma   || '—'}</td>
-                        <td className={`${styles.centered} ${styles.greenCell}`}>{s.presentes}</td>
-                        <td className={`${styles.centered} ${styles.redCell}`}>{s.ausentes}</td>
-                        <td className={styles.centered}>{s.total_registros}</td>
-                        <td className={styles.centered}>
-                          {tk ? (
-                            <span className={`${styles.taxaBadge} ${styles[`taxaBadge--${tk}`]}`}>
-                              {s.taxa_presenca}%
-                            </span>
-                          ) : (
-                            <span style={{ color: 'var(--clr-gray-300)', fontSize: 'var(--fs-xs)' }}>—</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {dados.map((s) => (
+                    <tr key={s.soldado_id}>
+                      <td>{s.nome_completo}</td>
+                      <td className={styles.monoCell}>{raExibicao(s.ra)}</td>
+                      <td>{s.pelotao || '—'}</td>
+                      <td>{s.turma   || '—'}</td>
+                      <td className={`${styles.centered} ${styles.redCell}`}>{s.faltas}</td>
+                      <td className={`${styles.centered} ${styles.redCell}`}>{s.faltas_guarda}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
           )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Aba: Evolução de Treinos ──────────────────────────────────────────────────
-
-function TooltipEv({ active, payload, label, unidade, isMedio }) {
-  if (!active || !payload?.length) return null;
-  const val = payload[0]?.value;
-  return (
-    <div className={styles.tooltip}>
-      <p className={styles.tooltipTitle}>{formatarData(label)}</p>
-      <p className={styles.tooltipBody}>
-        {isMedio ? 'Média: ' : 'Resultado: '}
-        <strong style={{ color: 'var(--clr-gray-900)' }}>{val}</strong>
-        {unidade ? ` ${unidade}` : ''}
-      </p>
-    </div>
-  );
-}
-
-function AbaEvolucao({ turmaId }) {
-  const [tipos,      setTipos]      = useState([]);
-  const [soldados,   setSoldados]   = useState([]);
-  const [tipoId,     setTipoId]     = useState('');
-  const [soldadoId,  setSoldadoId]  = useState('');
-  const [dataInicio, setDataInicio] = useState(primeiroDiaMes);
-  const [dataFim,    setDataFim]    = useState(hoje);
-  const [dados,      setDados]      = useState(null);
-  const [carregando, setCarregando] = useState(false);
-  const [erro,       setErro]       = useState(null);
-
-  useEffect(() => {
-    Promise.all([
-      treinosService.listarTipos().catch(() => []),
-      soldadosService.listar({ status: 'ativo' }).catch(() => []),
-    ]).then(([tps, sols]) => { setTipos(tps); setSoldados(sols); });
-  }, []);
-
-  async function buscar() {
-    if (!tipoId) return;
-    setCarregando(true);
-    setErro(null);
-    try {
-      const params = { tipo_treino_id: tipoId };
-      if (soldadoId) params.soldado_id = soldadoId;
-      if (dataInicio) params.data_inicio = dataInicio;
-      if (dataFim)    params.data_fim    = dataFim;
-      if (turmaId)    params.turma_id    = turmaId;
-      setDados(await relatoriosService.evolucao(params));
-    } catch {
-      setErro('Erro ao buscar dados de evolução.');
-    } finally {
-      setCarregando(false);
-    }
-  }
-
-  const tipoSelecionado = tipos.find((t) => String(t.id) === String(tipoId));
-  const unidade = tipoSelecionado?.unidade || '';
-  const isMedio = !soldadoId;
-  const dataKey = isMedio ? 'media_resultado' : 'resultado';
-
-  return (
-    <div className={styles.stack}>
-      <div className={styles.filterCard}>
-        <p className={styles.filterTitle}>Filtros</p>
-        <div className={styles.filterGrid}>
-          <InputLabel label="Tipo de treino *">
-            <select className={styles.select} value={tipoId} onChange={(e) => setTipoId(e.target.value)}>
-              <option value="">Selecione…</option>
-              {tipos.map((t) => (
-                <option key={t.id} value={t.id}>{t.nome}{t.unidade ? ` (${t.unidade})` : ''}</option>
-              ))}
-            </select>
-          </InputLabel>
-          <InputLabel label="Soldado (vazio = média geral)">
-            <select className={styles.select} value={soldadoId} onChange={(e) => setSoldadoId(e.target.value)}>
-              <option value="">Todos (média)</option>
-              {soldados.map((s) => (
-                <option key={s.id} value={s.id}>{s.nome_completo}</option>
-              ))}
-            </select>
-          </InputLabel>
-          <InputLabel label="Data início">
-            <input type="date" className={styles.input} value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} />
-          </InputLabel>
-          <InputLabel label="Data fim">
-            <input type="date" className={styles.input} value={dataFim} onChange={(e) => setDataFim(e.target.value)} />
-          </InputLabel>
-        </div>
-        <div className={styles.filterActions}>
-          <button onClick={buscar} disabled={carregando || !tipoId} className={styles.searchBtn}>
-            {carregando ? 'Buscando…' : 'Buscar'}
-          </button>
-        </div>
-        {erro && <p className={styles.error}>{erro}</p>}
-      </div>
-
-      {dados && (
-        <div className={styles.chartCard}>
-          <div className={styles.chartHeader}>
-            <p className={styles.chartTitle}>
-              Evolução — {tipoSelecionado?.nome ?? ''}
-              {isMedio
-                ? ' (média geral)'
-                : ` — ${soldados.find((s) => String(s.id) === String(soldadoId))?.nome_completo ?? ''}`}
-            </p>
-            <span className={styles.chartPoints}>{dados.length} registro(s)</span>
-          </div>
-
-          {dados.length < 2 ? (
-            <div className={styles.chartEmpty}>
-              {dados.length === 0
-                ? 'Nenhum registro encontrado para estes filtros.'
-                : 'Apenas um ponto de dados — o gráfico aparece a partir de dois.'}
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={dados} margin={{ top: 8, right: 12, left: -16, bottom: 0 }}>
-                <CartesianGrid stroke="#f3f4f6" vertical={false} />
-                <XAxis
-                  dataKey="data"
-                  tickFormatter={(v) => { const [, m, d] = v.split('-'); return `${d}/${m}`; }}
-                  tick={{ fontSize: 11, fill: '#9ca3af' }}
-                  axisLine={false} tickLine={false}
-                />
-                <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} width={42} />
-                <Tooltip content={<TooltipEv unidade={unidade} isMedio={isMedio} />} />
-                <Line type="monotone" dataKey={dataKey} stroke="#16a34a" strokeWidth={2}
-                  dot={{ fill: '#16a34a', r: 4, strokeWidth: 0 }} activeDot={{ r: 6 }} connectNulls />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-      )}
-
-      {dados && dados.length > 0 && (
-        <div className={styles.tableCard}>
-          <div className={styles.tableCardHeader}>
-            <h2 className={styles.tableCardTitle}>Detalhamento</h2>
-          </div>
-          <div className={styles.tableScrollWrap}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Data</th>
-                  <th style={{ textAlign: 'right' }}>
-                    {isMedio ? 'Média' : 'Resultado'}{unidade ? ` (${unidade})` : ''}
-                  </th>
-                  {isMedio && <th className={styles.centered}>Presentes</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {[...dados].reverse().map((d, i) => (
-                  <tr key={i}>
-                    <td>{formatarData(d.data)}</td>
-                    <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--clr-gray-800)' }}>
-                      {(isMedio ? d.media_resultado : d.resultado) ?? '—'}
-                    </td>
-                    {isMedio && <td className={styles.centered}>{d.total_presentes}</td>}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
         </div>
       )}
     </div>
@@ -452,7 +255,7 @@ function AbaEfetivo({ turmaId }) {
               ) : filtrados.map((s) => (
                 <tr key={s.id}>
                   <td>{s.nome_completo}</td>
-                  <td className={styles.monoCell}>{s.ra}</td>
+                  <td className={styles.monoCell}>{raExibicao(s.ra)}</td>
                   <td>{s.graduacao === 'cabo' ? 'Cabo' : 'Atirador'}</td>
                   <td>{s.pelotao || '—'}</td>
                   <td>{s.turma   || '—'}</td>
@@ -479,7 +282,6 @@ function AbaEfetivo({ turmaId }) {
 
 const ABAS = [
   { key: 'presenca', label: 'Presença' },
-  { key: 'evolucao', label: 'Evolução de Treinos' },
   { key: 'efetivo',  label: 'Efetivo' },
 ];
 
@@ -524,7 +326,6 @@ export default function Relatorios() {
       </div>
 
       {aba === 'presenca' && <AbaPresenca turmaId={turmaId} />}
-      {aba === 'evolucao' && <AbaEvolucao turmaId={turmaId} />}
       {aba === 'efetivo'  && <AbaEfetivo turmaId={turmaId} />}
     </Layout>
   );

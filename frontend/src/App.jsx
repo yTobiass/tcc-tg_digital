@@ -7,7 +7,6 @@ import TrocarSenha from './pages/auth/TrocarSenha';
 import Dashboard from './pages/dashboard/Dashboard';
 import Soldados from './pages/soldados/Soldados';
 import PerfilSoldado from './pages/soldados/PerfilSoldado';
-import Treinos    from './pages/treinos/Treinos';
 import Avaliacoes from './pages/avaliacoes/Avaliacoes';
 import Diario     from './pages/diario/Diario';
 import Escalas    from './pages/escalas/Escalas';
@@ -63,14 +62,6 @@ export default function App() {
             element={
               <ProtectedRoute roles={['comandante', 'sargento']}>
                 <PerfilSoldado />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/treinos"
-            element={
-              <ProtectedRoute roles={['comandante', 'sargento']}>
-                <Treinos />
               </ProtectedRoute>
             }
           />

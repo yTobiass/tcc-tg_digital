@@ -7,6 +7,7 @@ const schema = z.object({
   corrida:     z.number().int().min(0),
   flexao:      z.number().int().min(0),
   abdominal:   z.number().int().min(0),
+  barra_resultado: z.number().int().min(0),
   observacoes: z.string().max(500).optional().nullable(),
 });
 

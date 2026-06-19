@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import { raExibicao } from './nomes';
 
 const MESES = [
   'janeiro','fevereiro','março','abril','maio','junho',
@@ -88,7 +89,7 @@ export function gerarPdfDiario(diario) {
   y += 2;
 
   // ── Item 02 ────────────────────────────────────────────────────────────────
-  const recNr   = diario.recebimento_monitor_numero || '___-___';
+  const recNr   = raExibicao(diario.recebimento_monitor_numero) || '___-___';
   const recNome = uc(diario.recebimento_monitor_nome) || '________________';
   const rec02   = diario.recebimento_status === 'Com Alteração' ? 'COM ALTERAÇÃO' : 'SEM ALTERAÇÃO';
   y = itemBold(doc, '02', `RECEBI DO MONITOR N° ${recNr} – ${recNome}, ${rec02}.`, ML, y, UW, LH);
@@ -102,7 +103,7 @@ export function gerarPdfDiario(diario) {
   doc.text('PESSOAL DE SERVIÇO:', ML + p03W, y);
   y += LH;
 
-  const caboRa    = diario.cabo_ra    || '___-___';
+  const caboRa    = raExibicao(diario.cabo_ra) || '___-___';
   const caboGrr   = nomeGuerra(diario.cabo_nome) || '________________';
   doc.text(`    a) CMT GD: MONITOR N° ${caboRa} – ${caboGrr}.`, ML, y);
   y += LH;
@@ -112,7 +113,7 @@ export function gerarPdfDiario(diario) {
   const prefVaz = '               ';
   for (let i = 0; i < 3; i++) {
     const at  = ats[i];
-    const ra  = at?.ra || '___-___';
+    const ra  = raExibicao(at?.ra) || '___-___';
     const grr = uc(at?.nomeGuerra) || nomeGuerra(at?.nome) || '________________';
     doc.text(`${i === 0 ? prefAt : prefVaz}ATIRADOR N° ${ra} – ${grr}.`, ML, y);
     y += LH;
@@ -168,7 +169,7 @@ export function gerarPdfDiario(diario) {
   for (let i = 0; i < 3; i++) {
     const rowY = tableBodyTop + i * ROW_H;
     const posto = postos[i] || {};
-    const sentNum  = posto.numero || '___-___';
+    const sentNum  = raExibicao(posto.numero) || '___-___';
     const sentNome = uc(posto.nome) || '________________';
 
     doc.rect(xQuarto,  rowY, cQuarto,  ROW_H);
@@ -230,7 +231,7 @@ export function gerarPdfDiario(diario) {
   y += 2;
 
   // ── Item 08 ────────────────────────────────────────────────────────────────
-  const pasNr   = diario.passagem_monitor_numero || '___-___';
+  const pasNr   = raExibicao(diario.passagem_monitor_numero) || '___-___';
   const pasNome = uc(diario.passagem_monitor_nome) || '________________';
   y = itemBold(doc, '08', `FIZ A PASSAGEM AO MONITOR N° ${pasNr} – ${pasNome}, COM TODAS AS ORDENS EM VIGOR.`, ML, y, UW, LH);
   y += 6;

@@ -7,7 +7,7 @@ export const faltasService = {
   // soldado_ids (e tipo) com falta numa data — para pré-marcar checkboxes.
   doDia: (data) => api.get('/faltas/dia', { params: { data } }).then((r) => r.data),
 
-  // Registrar várias faltas de uma vez. faltas: [{ soldado_id, tipo, escala_id? }].
+  // Registrar várias faltas de uma vez. faltas: [{ soldado_id, tipo, escala_id?, justificativa? }].
   lote: (data, faltas) => api.post('/faltas/lote', { data, faltas }).then((r) => r.data),
 
   // Registrar uma falta individual.

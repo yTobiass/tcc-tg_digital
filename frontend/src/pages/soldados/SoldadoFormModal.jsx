@@ -1,17 +1,22 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Modal } from '../../components/ui/Modal';
 import { soldadosService } from '../../services/soldadosService';
+import { formatarCelular } from '../../utils/nomes';
 import styles from './SoldadoFormModal.module.scss';
 
 function campo(soldado, key) {
   return soldado?.[key] ?? '';
 }
 
-export function SoldadoFormModal({ soldado, onSalvar, onFechar }) {
+// `soldadosExistentes`: efetivo da turma ativa já carregado pela tela de Soldados,
+// usado para validar inline se o RA digitado já está em uso.
+export function SoldadoFormModal({ soldado, soldadosExistentes = [], onSalvar, onFechar }) {
   const editando = !!soldado;
   const [form, setForm] = useState({
     ra: campo(soldado, 'ra'),
     nome_completo: campo(soldado, 'nome_completo'),
+    nome_guerra: campo(soldado, 'nome_guerra'),
+    celular: campo(soldado, 'celular'),
     data_nascimento: campo(soldado, 'data_nascimento'),
     data_incorporacao: campo(soldado, 'data_incorporacao'),
     pelotao: campo(soldado, 'pelotao'),
@@ -22,6 +27,14 @@ export function SoldadoFormModal({ soldado, onSalvar, onFechar }) {
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
 
+  // Conflito de RA dentro da turma ativa (lista já é a da turma ativa).
+  // Na edição, ignora o próprio registro.
+  const raEmUso = useMemo(() => {
+    const ra = form.ra.trim();
+    if (!ra) return false;
+    return soldadosExistentes.some((s) => s.ra === ra && s.id !== soldado?.id);
+  }, [form.ra, soldadosExistentes, soldado?.id]);
+
   function set(key, valor) {
     setForm((f) => ({ ...f, [key]: valor }));
     setErro('');
@@ -30,7 +43,9 @@ export function SoldadoFormModal({ soldado, onSalvar, onFechar }) {
   async function handleSubmit(e) {
     e.preventDefault();
     if (!form.ra.trim()) { setErro('RA é obrigatório.'); return; }
+    if (raEmUso) { setErro('Este RA já está em uso nesta turma.'); return; }
     if (!form.nome_completo.trim()) { setErro('Nome completo é obrigatório.'); return; }
+    if (!form.nome_guerra.trim()) { setErro('O nome de guerra é obrigatório.'); return; }
 
     setSalvando(true);
     try {
@@ -52,7 +67,15 @@ export function SoldadoFormModal({ soldado, onSalvar, onFechar }) {
       <form onSubmit={handleSubmit} noValidate>
         <div className={styles.grid}>
           <Field label="RA *">
-            <input className={styles.input} value={form.ra} onChange={(e) => set('ra', e.target.value)} placeholder="001-1" />
+            <input
+              className={styles.input}
+              value={form.ra}
+              onChange={(e) => set('ra', e.target.value)}
+              placeholder="001-1"
+              aria-invalid={raEmUso}
+              style={raEmUso ? { borderColor: '#dc2626' } : undefined}
+            />
+            {raEmUso && <p className={styles.fieldError}>Este RA já está em uso nesta turma.</p>}
           </Field>
 
           <Field label="Graduação">
@@ -64,6 +87,22 @@ export function SoldadoFormModal({ soldado, onSalvar, onFechar }) {
 
           <Field label="Nome Completo *" fullWidth>
             <input className={styles.input} value={form.nome_completo} onChange={(e) => set('nome_completo', e.target.value)} placeholder="SILVA, João Pedro" />
+          </Field>
+
+          <Field label="Nome de Guerra *">
+            <input className={styles.input} value={form.nome_guerra} onChange={(e) => set('nome_guerra', e.target.value)} placeholder="SILVA" />
+            <p className={styles.fieldHelp}>Nome pelo qual o soldado é reconhecido no TG. Será exibido em todo o sistema.</p>
+          </Field>
+
+          <Field label="Celular">
+            <input
+              className={styles.input}
+              value={form.celular}
+              onChange={(e) => set('celular', formatarCelular(e.target.value))}
+              placeholder="(19) 99999-1234"
+              inputMode="numeric"
+            />
+            <p className={styles.fieldHelp}>Opcional — deixe em branco se o soldado não tiver celular.</p>
           </Field>
 
           <Field label="Data de Nascimento">
@@ -100,7 +139,7 @@ export function SoldadoFormModal({ soldado, onSalvar, onFechar }) {
           <button type="button" onClick={onFechar} className={styles.cancelBtn}>
             Cancelar
           </button>
-          <button type="submit" disabled={salvando} className={styles.saveBtn}>
+          <button type="submit" disabled={salvando || raEmUso} className={styles.saveBtn}>
             {salvando ? 'Salvando...' : 'Salvar'}
           </button>
         </div>

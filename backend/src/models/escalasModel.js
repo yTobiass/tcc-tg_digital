@@ -51,6 +51,52 @@ function inicializarFilas() {
   return { cabos: listarFila('cabos'), atiradores: listarFila('atiradores') };
 }
 
+// ── Ressincronização das filas com a graduação atual ─────────────────────────
+// As filas guardam soldados por graduação, mas a graduação muda ao longo do
+// tempo (promoção atirador→cabo, rebaixamento cabo→atirador) e soldados podem
+// ser removidos. Sem reconciliar, a fila fica inconsistente: um rebaixado
+// continua na fila de cabos, um promovido nunca entra na de cabos, etc.
+//
+// _ressincronizarTipo reconcilia UMA fila quanto à GRADUAÇÃO:
+//   - remove quem não tem mais a graduação da fila (foi promovido/rebaixado) ou
+//     cujo soldado deixou de existir;
+//   - adiciona ao fim os soldados ATIVOS com a graduação correta que ainda não
+//     estão na fila (ex.: recém-promovidos).
+// O status (licença/baixado/dispensado) NÃO retira a linha aqui — é filtrado na
+// exibição (listarFila) e na sugestão; assim a posição na rotação é preservada
+// caso o soldado volte a ficar ativo.
+function _ressincronizarTipo(db, filaTipo) {
+  const graduacao = GRAD_DA_FILA[filaTipo];
+
+  // Retira da fila quem não corresponde mais à graduação dela (ou sumiu).
+  db.prepare(`
+    DELETE FROM fila_rotacao
+    WHERE tipo_guarda = ?
+      AND soldado_id NOT IN (SELECT id FROM soldados WHERE graduacao = ?)
+  `).run(filaTipo, graduacao);
+
+  // Acrescenta ao fim os ativos com a graduação certa que ainda não estão nela.
+  const faltantes = db.prepare(`
+    SELECT id FROM soldados
+    WHERE graduacao = ? AND status = 'ativo'
+      AND id NOT IN (SELECT soldado_id FROM fila_rotacao WHERE tipo_guarda = ?)
+    ORDER BY COALESCE(data_incorporacao, created_at) ASC, id ASC
+  `).all(graduacao, filaTipo);
+  faltantes.forEach((s) => _garantirMembroNaFila(db, filaTipo, s.id));
+}
+
+// Reconciliação completa das duas filas. Idempotente. Deve rodar ao abrir a tela
+// de Fila de Rotação e após qualquer alteração de graduação/efetivo dos soldados.
+function ressincronizarFilas() {
+  const db = getDb();
+  db.transaction(() => {
+    _inicializarFilaTipo(db, 'cabos');
+    _inicializarFilaTipo(db, 'atiradores');
+    _ressincronizarTipo(db, 'cabos');
+    _ressincronizarTipo(db, 'atiradores');
+  })();
+}
+
 // Insere o soldado no fim da fila caso ainda não esteja nela (ex.: soldado que
 // estava em licença na inicialização, ou cadastrado depois).
 function _garantirMembroNaFila(db, filaTipo, soldadoId) {
@@ -112,15 +158,18 @@ function verificarEReiniciarFila(filaTipo) {
 }
 
 function listarFila(tipo) {
-  garantirFilas();
+  // Reconcilia antes de listar: garante que a tela sempre reflita o estado atual
+  // (promoções/rebaixamentos/remoções) e nunca mostre graduação inconsistente.
+  ressincronizarFilas();
+  const graduacao = GRAD_DA_FILA[tipo];
   return getDb().prepare(`
     SELECT f.posicao, f.posicao_anterior, f.ultima_data,
-           s.id AS soldado_id, s.ra, s.nome_completo, s.status, s.graduacao
+           s.id AS soldado_id, s.ra, s.nome_completo, s.nome_guerra, s.status, s.graduacao
     FROM fila_rotacao f
     JOIN soldados s ON s.id = f.soldado_id
-    WHERE f.tipo_guarda = ?
+    WHERE f.tipo_guarda = ? AND s.status = 'ativo' AND s.graduacao = ?
     ORDER BY f.posicao ASC
-  `).all(tipo);
+  `).all(tipo, graduacao);
 }
 
 // ── Disponibilidade / conflitos ──────────────────────────────────────────────
@@ -155,14 +204,16 @@ function _atiradoresEmPretaCobrindo(db, dataInicio, dataFim) {
 // ── Sugestão automática ──────────────────────────────────────────────────────
 
 function sugerirMembros(tipo, dataInicio, dataFim) {
-  garantirFilas();
+  // Ressincroniza para que a sugestão considere a graduação atual de cada
+  // soldado (cabos recém-promovidos entram, rebaixados saem da fila de cabos).
+  ressincronizarFilas();
   const db = getDb();
   const ocupados = _soldadosOcupados(db, dataInicio, dataFim);
 
   // Próximos da fila, na ordem de posição, pulando indisponíveis.
   function proximos(filaTipo, graduacao, limite, excluir) {
     const fila = db.prepare(`
-      SELECT s.id AS soldado_id, s.ra, s.nome_completo, s.graduacao, f.posicao
+      SELECT s.id AS soldado_id, s.ra, s.nome_completo, s.nome_guerra, s.graduacao, f.posicao
       FROM fila_rotacao f
       JOIN soldados s ON s.id = f.soldado_id
       WHERE f.tipo_guarda = ? AND s.status = 'ativo' AND s.graduacao = ?
@@ -188,9 +239,9 @@ function listarSoldadosElegiveis(tipo) {
   const db = getDb();
   const filtro = tipo === 'verde' ? "AND graduacao = 'atirador'" : '';
   return db.prepare(`
-    SELECT id AS soldado_id, ra, nome_completo, graduacao
+    SELECT id AS soldado_id, ra, nome_completo, nome_guerra, graduacao
     FROM soldados WHERE status = 'ativo' ${filtro}
-    ORDER BY nome_completo ASC
+    ORDER BY COALESCE(NULLIF(nome_guerra, ''), nome_completo) ASC
   `).all();
 }
 
@@ -285,11 +336,11 @@ function buscarEscala(id) {
   if (!e) return null;
   e.membros = db.prepare(`
     SELECT em.funcao, em.motivo_repeticao,
-           s.id AS soldado_id, s.ra, s.nome_completo, s.graduacao
+           s.id AS soldado_id, s.ra, s.nome_completo, s.nome_guerra, s.graduacao
     FROM escala_membros em
     JOIN soldados s ON s.id = em.soldado_id
     WHERE em.escala_id = ?
-    ORDER BY em.funcao DESC, s.nome_completo ASC
+    ORDER BY em.funcao DESC, COALESCE(NULLIF(s.nome_guerra, ''), s.nome_completo) ASC
   `).all(id);
   return e;
 }
@@ -477,7 +528,7 @@ function removerBloqueio(id) {
 }
 
 module.exports = {
-  garantirFilas, inicializarFilas, listarFila, sugerirMembros, listarSoldadosElegiveis,
+  garantirFilas, ressincronizarFilas, inicializarFilas, listarFila, sugerirMembros, listarSoldadosElegiveis,
   reordenarFila, verificarEReiniciarFila, existeVerdeNoDia, existeEscalaTipoData, existeEscalaCobrindo,
   listarEscalas, buscarEscala, criarEscala, atualizarEscala, alterarMembro,
   alterarStatus, removerEscala, historicoPorSoldado, calendario,

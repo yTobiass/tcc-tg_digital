@@ -6,6 +6,7 @@ import { useSoldados } from '../../hooks/useSoldados';
 import { SoldadoFormModal } from './SoldadoFormModal';
 import { ImportarModal } from './ImportarModal';
 import { corPontos, corFatd, situacao, LIMITE_PONTOS, LIMITE_FATD } from '../../utils/pontos';
+import { nomeExibicao, raExibicao } from '../../utils/nomes';
 import styles from './Soldados.module.scss';
 
 const STATUS_OPTS = [
@@ -95,7 +96,10 @@ export default function Soldados() {
   const filtrados = useMemo(() => {
     const b = busca.toLowerCase();
     const lista = soldados.filter((s) => {
-      if (b && !s.nome_completo.toLowerCase().includes(b) && !s.ra.toLowerCase().includes(b)) return false;
+      if (b
+        && !s.nome_completo.toLowerCase().includes(b)
+        && !(s.nome_guerra || '').toLowerCase().includes(b)
+        && !s.ra.toLowerCase().includes(b)) return false;
       if (filtroStatus && s.status !== filtroStatus) return false;
       if (filtroGrad && s.graduacao !== filtroGrad) return false;
       if (filtroPelotao && s.pelotao !== filtroPelotao) return false;
@@ -220,14 +224,14 @@ export default function Soldados() {
             <tbody>
               {filtrados.map((s) => (
                 <tr key={s.id}>
-                  <td className={styles.raCell}>{s.ra}</td>
+                  <td className={styles.raCell}>{raExibicao(s.ra)}</td>
                   <td className={styles.nameCell}>
                     <button
                       onClick={() => navigate(`/soldados/${s.id}`)}
                       style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'inherit', cursor: 'pointer', textAlign: 'left' }}
                       title="Ver perfil"
                     >
-                      {s.nome_completo}
+                      {nomeExibicao(s)}
                     </button>
                   </td>
                   <td className={`${styles.muteCell} ${styles.hideMd}`}>{s.pelotao || '—'}</td>
@@ -280,6 +284,7 @@ export default function Soldados() {
         <SoldadoFormModal
           key={modalForm === 'novo' ? 'novo' : modalForm.id}
           soldado={modalForm === 'novo' ? null : modalForm}
+          soldadosExistentes={soldados}
           onSalvar={handleSalvar}
           onFechar={() => setModalForm(null)}
         />

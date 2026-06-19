@@ -3,18 +3,20 @@ import { Modal } from '../../components/ui/Modal';
 import { calcularTAF, BG_CONCEITO } from '../../utils/tafCalculo';
 import { avaliacoesService } from '../../services/avaliacoesService';
 import { hoje } from '../../utils/data';
+import { raExibicao } from '../../utils/nomes';
 import styles from './AvaliacaoFormModal.module.scss';
 
 const CAMPO = [
-  { key: 'corrida',   label: 'Corrida (m)',     placeholder: 'ex: 2400' },
-  { key: 'flexao',    label: 'Flexão de braço', placeholder: 'ex: 35'   },
-  { key: 'abdominal', label: 'Abdominal',       placeholder: 'ex: 48'   },
+  { key: 'corrida',         label: 'Corrida (m)',     placeholder: 'ex: 2400' },
+  { key: 'flexao',          label: 'Flexão de braço', placeholder: 'ex: 35'   },
+  { key: 'abdominal',       label: 'Abdominal',       placeholder: 'ex: 48'   },
+  { key: 'barra_resultado', label: 'Barra fixa',      placeholder: 'ex: 8'    },
 ];
 
-function Preview({ corrida, flexao, abdominal }) {
-  const vals = [corrida, flexao, abdominal].map(Number);
+function Preview({ corrida, flexao, abdominal, barra }) {
+  const vals = [corrida, flexao, abdominal, barra].map(Number);
   if (vals.some((v) => isNaN(v) || v < 0)) return null;
-  const { nota, conceito, ptsCorrida, ptsFlexao, ptsAbdominal } = calcularTAF(...vals);
+  const { nota, conceito, ptsCorrida, ptsFlexao, ptsAbdominal, ptsBarra } = calcularTAF(...vals);
   return (
     <div className={styles.preview}>
       <div className={styles.previewHeader}>
@@ -28,6 +30,7 @@ function Preview({ corrida, flexao, abdominal }) {
         <div><span className={styles.breakdownValue}>{ptsCorrida}</span>Corrida</div>
         <div><span className={styles.breakdownValue}>{ptsFlexao}</span>Flexão</div>
         <div><span className={styles.breakdownValue}>{ptsAbdominal}</span>Abdominal</div>
+        <div><span className={styles.breakdownValue}>{ptsBarra}</span>Barra</div>
       </div>
     </div>
   );
@@ -39,10 +42,11 @@ export default function AvaliacaoFormModal({ avaliacao, soldados, onClose: onFec
   const [form, setForm] = useState({
     soldado_id:  avaliacao?.soldado_id  ?? '',
     data:        avaliacao?.data        ?? hoje(),
-    corrida:     avaliacao?.corrida     ?? '',
-    flexao:      avaliacao?.flexao      ?? '',
-    abdominal:   avaliacao?.abdominal   ?? '',
-    observacoes: avaliacao?.observacoes ?? '',
+    corrida:         avaliacao?.corrida         ?? '',
+    flexao:          avaliacao?.flexao          ?? '',
+    abdominal:       avaliacao?.abdominal       ?? '',
+    barra_resultado: avaliacao?.barra_resultado ?? '',
+    observacoes:     avaliacao?.observacoes     ?? '',
   });
   const [salvando, setSalvando] = useState(false);
   const [erro,     setErro]     = useState(null);
@@ -59,10 +63,11 @@ export default function AvaliacaoFormModal({ avaliacao, soldados, onClose: onFec
     try {
       const payload = {
         ...form,
-        soldado_id: Number(form.soldado_id),
-        corrida:    Number(form.corrida),
-        flexao:     Number(form.flexao),
-        abdominal:  Number(form.abdominal),
+        soldado_id:      Number(form.soldado_id),
+        corrida:         Number(form.corrida),
+        flexao:          Number(form.flexao),
+        abdominal:       Number(form.abdominal),
+        barra_resultado: Number(form.barra_resultado),
       };
       const salvo = editando
         ? await avaliacoesService.atualizar(avaliacao.id, payload)
@@ -75,7 +80,7 @@ export default function AvaliacaoFormModal({ avaliacao, soldados, onClose: onFec
     }
   }
 
-  const previewValida = form.corrida !== '' && form.flexao !== '' && form.abdominal !== '';
+  const previewValida = form.corrida !== '' && form.flexao !== '' && form.abdominal !== '' && form.barra_resultado !== '';
 
   return (
     <Modal aberto titulo={editando ? 'Editar avaliação' : 'Nova avaliação (TAF)'} onFechar={onFechar}>
@@ -91,7 +96,7 @@ export default function AvaliacaoFormModal({ avaliacao, soldados, onClose: onFec
           >
             <option value="">Selecione…</option>
             {soldados.map((s) => (
-              <option key={s.id} value={s.id}>{s.nome_completo ?? s.nome} — {s.ra}</option>
+              <option key={s.id} value={s.id}>{s.nome_completo ?? s.nome} — {raExibicao(s.ra)}</option>
             ))}
           </select>
         </div>
@@ -125,7 +130,7 @@ export default function AvaliacaoFormModal({ avaliacao, soldados, onClose: onFec
         </div>
 
         {previewValida && (
-          <Preview corrida={form.corrida} flexao={form.flexao} abdominal={form.abdominal} />
+          <Preview corrida={form.corrida} flexao={form.flexao} abdominal={form.abdominal} barra={form.barra_resultado} />
         )}
 
         <div>

@@ -3,6 +3,7 @@ import { Modal }           from '../../components/ui/Modal';
 import { InfoTooltip }     from '../../components/ui/Tooltip';
 import { usuariosService } from '../../services/usuariosService';
 import { soldadosService } from '../../services/soldadosService';
+import { raExibicao }      from '../../utils/nomes';
 import styles from './UsuarioModal.module.scss';
 
 const ROLES = [
@@ -137,7 +138,7 @@ export default function UsuarioModal({ usuario, onFechar, onSalvo }) {
               onChange={(e) => setSoldadoId(e.target.value)}>
               <option value="">Selecione o soldado…</option>
               {soldados.map((s) => (
-                <option key={s.id} value={s.id}>{s.nome_completo} — {s.ra}</option>
+                <option key={s.id} value={s.id}>{s.nome_completo} — {raExibicao(s.ra)}</option>
               ))}
             </select>
           </Campo>

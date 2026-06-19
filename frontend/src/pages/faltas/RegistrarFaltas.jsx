@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { soldadosService } from '../../services/soldadosService';
 import { faltasService } from '../../services/faltasService';
 import { formatarData } from '../../utils/data';
+import { nomeExibicao, raExibicao } from '../../utils/nomes';
 
 function hojeISO() {
   const d = new Date();
@@ -26,6 +27,8 @@ export default function RegistrarFaltas() {
 
   // soldado_id -> tipo selecionado nesta sessão de marcação.
   const [marcados, setMarcados] = useState({});
+  // soldado_id -> justificativa (opcional) digitada nesta sessão.
+  const [justificativas, setJustificativas] = useState({});
   // soldado_id -> tipo já registrado na data (pré-marcado, não re-registra).
   const [jaRegistrados, setJaRegistrados] = useState({});
 
@@ -45,6 +48,7 @@ export default function RegistrarFaltas() {
       doDia.forEach((f) => { reg[f.soldado_id] = f.tipo; });
       setJaRegistrados(reg);
       setMarcados(reg);            // pré-marca quem já tem falta na data
+      setJustificativas({});       // justificativas são por sessão de marcação
     } finally {
       setCarregando(false);
     }
@@ -56,7 +60,9 @@ export default function RegistrarFaltas() {
     const t = busca.trim().toLowerCase();
     if (!t) return soldados;
     return soldados.filter((s) =>
-      s.nome_completo?.toLowerCase().includes(t) || s.ra?.toLowerCase().includes(t));
+      s.nome_completo?.toLowerCase().includes(t)
+      || s.nome_guerra?.toLowerCase().includes(t)
+      || s.ra?.toLowerCase().includes(t));
   }, [soldados, busca]);
 
   function toggle(soldadoId) {
@@ -66,10 +72,21 @@ export default function RegistrarFaltas() {
       else novo[soldadoId] = 'falta';
       return novo;
     });
+    // Ao desmarcar, limpa a justificativa associada.
+    setJustificativas((j) => {
+      if (j[soldadoId] === undefined) return j;
+      const novo = { ...j };
+      delete novo[soldadoId];
+      return novo;
+    });
   }
 
   function setTipo(soldadoId, tipo) {
     setMarcados((m) => ({ ...m, [soldadoId]: tipo }));
+  }
+
+  function setJustificativa(soldadoId, texto) {
+    setJustificativas((j) => ({ ...j, [soldadoId]: texto }));
   }
 
   // Apenas faltas NOVAS (não já registradas naquela data) entram no lote.
@@ -81,7 +98,11 @@ export default function RegistrarFaltas() {
   async function confirmar() {
     setSalvando(true);
     try {
-      const faltas = novas.map(([id, tipo]) => ({ soldado_id: Number(id), tipo }));
+      const faltas = novas.map(([id, tipo]) => ({
+        soldado_id: Number(id),
+        tipo,
+        justificativa: justificativas[id]?.trim() || null,
+      }));
       const r = await faltasService.lote(data, faltas);
       setToast({
         msg: `${r.registradas} falta(s) registradas. ${r.pontos_distribuidos} pontos distribuídos.`,
@@ -124,11 +145,12 @@ export default function RegistrarFaltas() {
               <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
                 <th style={{ ...th, width: 40, textAlign: 'center' }}>☐</th>
                 <th style={th}>RA</th>
-                <th style={th}>Nome Completo</th>
+                <th style={th}>Nome</th>
                 <th style={th}>Pelotão</th>
                 <th style={{ ...th, textAlign: 'center' }}>Faltas</th>
                 <th style={{ ...th, textAlign: 'center' }}>Pontos</th>
                 <th style={th}>Tipo</th>
+                <th style={th}>Justificativa (opcional)</th>
               </tr>
             </thead>
             <tbody>
@@ -141,8 +163,8 @@ export default function RegistrarFaltas() {
                     <td style={{ ...td, textAlign: 'center' }}>
                       <input type="checkbox" checked={marcado} onChange={() => toggle(s.id)} />
                     </td>
-                    <td style={td}>{s.ra}</td>
-                    <td style={{ ...td, fontWeight: 600, color: '#1f2937' }}>{s.nome_completo}</td>
+                    <td style={td}>{raExibicao(s.ra)}</td>
+                    <td style={{ ...td, fontWeight: 600, color: '#1f2937' }}>{nomeExibicao(s)}</td>
                     <td style={td}>{s.pelotao || '—'}</td>
                     <td style={{ ...td, textAlign: 'center' }}>{s.total_faltas ?? 0}</td>
                     <td style={{ ...td, textAlign: 'center', color: alerta ? '#9a3412' : '#374151', fontWeight: alerta ? 700 : 400 }}>
@@ -161,11 +183,22 @@ export default function RegistrarFaltas() {
                       ) : <span style={{ color: '#9ca3af' }}>—</span>}
                       {jaReg && <span style={{ marginLeft: 8, fontSize: 11, color: '#9ca3af' }}>já registrada</span>}
                     </td>
+                    <td style={td}>
+                      {marcado && !jaReg ? (
+                        <input
+                          type="text"
+                          value={justificativas[s.id] ?? ''}
+                          onChange={(e) => setJustificativa(s.id, e.target.value)}
+                          placeholder="Ex: atestado médico, motivo pessoal... (pode deixar em branco)"
+                          style={{ ...input, width: '100%', padding: '5px 8px' }}
+                        />
+                      ) : <span style={{ color: '#9ca3af' }}>—</span>}
+                    </td>
                   </tr>
                 );
               })}
               {filtrados.length === 0 && (
-                <tr><td colSpan={7} style={{ ...td, textAlign: 'center', color: '#9ca3af' }}>Nenhum soldado encontrado.</td></tr>
+                <tr><td colSpan={8} style={{ ...td, textAlign: 'center', color: '#9ca3af' }}>Nenhum soldado encontrado.</td></tr>
               )}
             </tbody>
           </table>
@@ -198,7 +231,7 @@ export default function RegistrarFaltas() {
               <p style={{ margin: '0 0 6px', fontWeight: 700, color: '#991b1b' }}>⛔ Soldado(s) expulso(s):</p>
               {toast.expulsoes.map((e) => (
                 <p key={e.soldado_id} style={{ margin: 0, color: '#dc2626', fontWeight: 600 }}>
-                  {e.nome_completo} — {e.motivo}
+                  {nomeExibicao(e)} — {e.motivo}
                 </p>
               ))}
             </div>

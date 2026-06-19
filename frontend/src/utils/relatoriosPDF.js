@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import { raExibicao } from './nomes';
 
 const MESES = [
   'janeiro','fevereiro','março','abril','maio','junho',
@@ -14,13 +15,6 @@ function formatarBR(iso) {
 function dataExtenso(iso) {
   const [y, m, d] = (iso || new Date().toISOString().slice(0, 10)).split('-').map(Number);
   return `${d} de ${MESES[m - 1]} de ${y}`;
-}
-
-function corTaxa(taxa) {
-  if (taxa === null || taxa === undefined) return [200, 200, 200];
-  if (taxa >= 75) return [220, 252, 231];   // verde claro
-  if (taxa >= 50) return [254, 249, 195];   // amarelo claro
-  return [254, 226, 226];                   // vermelho claro
 }
 
 export function gerarPdfPresenca({ dados, dataInicio, dataFim, filtros = {} }) {
@@ -64,18 +58,17 @@ export function gerarPdfPresenca({ dados, dataInicio, dataFim, filtros = {} }) {
   y += 6;
 
   // ── Tabela ─────────────────────────────────────────────────────────────────
-  // Colunas: Nº(8) | Nome(72) | RA(22) | Pelotão(18) | Turma(16) | Pres(12) | Falt(12) | Taxa(12) = 172... adjust
-  const cols = { num: 8, nome: 68, ra: 22, pelotao: 18, turma: 16, pres: 12, falt: 12, taxa: 14 };
-  // total = 8+68+22+18+16+12+12+14 = 170 + margem interna
+  // Colunas: Nº | Nome | RA | Pelotão | Turma | Faltas | Faltas nas Guardas
+  const cols = { num: 8, nome: 70, ra: 22, pelotao: 20, turma: 16, falt: 16, faltGuarda: 22 };
+  // total = 8+70+22+20+16+16+22 = 174
   const xNum    = ML;
   const xNome   = xNum    + cols.num;
   const xRA     = xNome   + cols.nome;
   const xPelotao= xRA     + cols.ra;
   const xTurma  = xPelotao+ cols.pelotao;
-  const xPres   = xTurma  + cols.turma;
-  const xFalt   = xPres   + cols.pres;
-  const xTaxa   = xFalt   + cols.falt;
-  const totalW  = cols.num + cols.nome + cols.ra + cols.pelotao + cols.turma + cols.pres + cols.falt + cols.taxa;
+  const xFalt   = xTurma  + cols.turma;
+  const xFaltGd = xFalt   + cols.falt;
+  const totalW  = cols.num + cols.nome + cols.ra + cols.pelotao + cols.turma + cols.falt + cols.faltGuarda;
 
   const hH = 7; // header height
   const rH = 6; // row height
@@ -86,7 +79,7 @@ export function gerarPdfPresenca({ dados, dataInicio, dataFim, filtros = {} }) {
     doc.rect(ML, y, totalW, hH);
 
     // Linhas verticais do cabeçalho
-    [xNome, xRA, xPelotao, xTurma, xPres, xFalt, xTaxa].forEach((x) => {
+    [xNome, xRA, xPelotao, xTurma, xFalt, xFaltGd].forEach((x) => {
       doc.line(x, y, x, y + hH);
     });
 
@@ -98,9 +91,8 @@ export function gerarPdfPresenca({ dados, dataInicio, dataFim, filtros = {} }) {
     doc.text('RA',        xRA     + 1,   cy);
     doc.text('PELOTÃO',   xPelotao+ 1,   cy);
     doc.text('TURMA',     xTurma  + 1,   cy);
-    doc.text('PRES.',     xPres   + 1,   cy);
-    doc.text('FALT.',     xFalt   + 1,   cy);
-    doc.text('TAXA %',    xTaxa   + 1,   cy);
+    doc.text('FALTAS',    xFalt   + 1,   cy);
+    doc.text('F. GUARDA', xFaltGd + 1,   cy);
   }
 
   desenharCabecalhoTabela();
@@ -120,11 +112,10 @@ export function gerarPdfPresenca({ dados, dataInicio, dataFim, filtros = {} }) {
       doc.setFontSize(8);
     }
 
-    const [r, g, b] = corTaxa(s.taxa_presenca);
-    doc.setFillColor(r, g, b);
+    doc.setFillColor(255, 255, 255);
     doc.rect(ML, y, totalW, rH, 'FD');
 
-    [xNome, xRA, xPelotao, xTurma, xPres, xFalt, xTaxa].forEach((x) => {
+    [xNome, xRA, xPelotao, xTurma, xFalt, xFaltGd].forEach((x) => {
       doc.line(x, y, x, y + rH);
     });
 
@@ -133,15 +124,11 @@ export function gerarPdfPresenca({ dados, dataInicio, dataFim, filtros = {} }) {
     doc.text(String(idx + 1),               xNum    + 1, cy);
     const nomeTrunc = doc.splitTextToSize(s.nome_completo?.toUpperCase() || '—', cols.nome - 3)[0];
     doc.text(nomeTrunc,                     xNome   + 1, cy);
-    doc.text(s.ra || '—',                   xRA     + 1, cy);
+    doc.text(raExibicao(s.ra) || '—',       xRA     + 1, cy);
     doc.text(s.pelotao || '—',              xPelotao+ 1, cy);
     doc.text(s.turma   || '—',              xTurma  + 1, cy);
-    doc.text(String(s.presentes ?? 0),      xPres   + 1, cy);
-    doc.text(String(s.ausentes  ?? 0),      xFalt   + 1, cy);
-    doc.text(
-      s.taxa_presenca != null ? `${s.taxa_presenca}%` : '—',
-      xTaxa + 1, cy,
-    );
+    doc.text(String(s.faltas        ?? 0),  xFalt   + 1, cy);
+    doc.text(String(s.faltas_guarda ?? 0),  xFaltGd + 1, cy);
     y += rH;
   });
 
@@ -153,12 +140,10 @@ export function gerarPdfPresenca({ dados, dataInicio, dataFim, filtros = {} }) {
   y += 5;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
-  const totalPresentes = dados.reduce((a, s) => a + (s.presentes ?? 0), 0);
-  const totalFaltas    = dados.reduce((a, s) => a + (s.ausentes  ?? 0), 0);
-  const totalReg       = dados.reduce((a, s) => a + (s.total_registros ?? 0), 0);
-  const taxaGeral      = totalReg > 0 ? Math.round(100 * totalPresentes / totalReg) : null;
+  const totalFaltas    = dados.reduce((a, s) => a + (s.faltas        ?? 0), 0);
+  const totalFaltasGd  = dados.reduce((a, s) => a + (s.faltas_guarda ?? 0), 0);
   doc.text(
-    `Total: ${dados.length} soldado(s)  |  Presenças: ${totalPresentes}  |  Faltas: ${totalFaltas}${taxaGeral !== null ? `  |  Taxa geral: ${taxaGeral}%` : ''}`,
+    `Total: ${dados.length} soldado(s)  |  Faltas: ${totalFaltas}  |  Faltas nas Guardas: ${totalFaltasGd}`,
     ML, y,
   );
 

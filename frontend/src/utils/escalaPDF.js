@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import { nomeExibicao, raExibicao } from './nomes';
 
 const MESES = [
   'janeiro','fevereiro','março','abril','maio','junho',
@@ -89,7 +90,7 @@ export function gerarPdfEscala(escala) {
   doc.setFontSize(9);
   doc.text('FUNÇÃO',  xFunc + 2,  y + 5);
   doc.text('N° (RA)', xRA   + 2,  y + 5);
-  doc.text('NOME COMPLETO', xNome + 2, y + 5);
+  doc.text('NOME DE GUERRA', xNome + 2, y + 5);
 
   doc.rect(ML, y, UW, headerH);
   doc.line(xRA,   y, xRA,   y + headerH);
@@ -109,8 +110,8 @@ export function gerarPdfEscala(escala) {
     y += rowH;
   }
 
-  if (cabo) linha('MONITOR / CABO', cabo.ra, cabo.nome_completo);
-  ats.forEach((at, i) => linha(`ATIRADOR ${i + 1}`, at.ra, at.nome_completo));
+  if (cabo) linha('MONITOR / CABO', raExibicao(cabo.ra), nomeExibicao(cabo));
+  ats.forEach((at, i) => linha(`ATIRADOR ${i + 1}`, raExibicao(at.ra), nomeExibicao(at)));
 
   y += 6;
 

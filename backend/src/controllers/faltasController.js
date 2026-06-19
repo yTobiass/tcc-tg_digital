@@ -21,6 +21,7 @@ const itemLote = z.object({
   soldado_id: z.number().int().positive(),
   tipo: z.enum(['falta', 'falta_guarda']),
   escala_id: z.number().int().positive().optional().nullable(),
+  justificativa: z.string().max(500).optional().nullable(),
 });
 
 const schemaLote = z.object({
@@ -41,6 +42,7 @@ const schemaIndividual = z.object({
   data: z.string().regex(ISO_DATE),
   tipo: z.enum(['falta', 'falta_guarda']),
   escala_id: z.number().int().positive().optional().nullable(),
+  justificativa: z.string().max(500).optional().nullable(),
 });
 
 // POST /api/faltas/:soldado_id — registra uma falta individual.
@@ -52,7 +54,7 @@ function individual(req, res) {
   if (!r.success) return res.status(400).json({ error: r.error.issues[0].message });
 
   const resultado = pontos.registrarFaltaIndividual(
-    soldadoId, r.data.tipo, r.data.data, r.data.escala_id ?? null, req.user?.id
+    soldadoId, r.data.tipo, r.data.data, r.data.escala_id ?? null, req.user?.id, r.data.justificativa ?? null
   );
   if (!resultado) return res.status(404).json({ error: 'Soldado não encontrado.' });
   return res.status(201).json(resultado);

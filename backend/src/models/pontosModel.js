@@ -9,14 +9,8 @@ function hojeISO() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// ── Cálculo da tabela progressiva de pontos por falta ────────────────────────
-// total_faltas_atuais = número de faltas comuns ANTES desta nova falta.
-function calcularPontosFalta(totalFaltasAtuais) {
-  const novaFalta = totalFaltasAtuais + 1;
-  if (novaFalta <= 3) return 2;
-  if (novaFalta <= 6) return 4;
-  return 6;
-}
+// Toda falta comum vale SEMPRE 2 pontos (sem tabela progressiva).
+const PONTOS_FALTA = 2;
 
 function buscarSoldado(db, id) {
   return db.prepare('SELECT * FROM soldados WHERE id = ?').get(id);
@@ -64,22 +58,22 @@ function verificarReativacao(db, soldadoId) {
   return false;
 }
 
-// ── Registro de falta comum (tabela progressiva) ─────────────────────────────
-// `data` = dia da falta ('YYYY-MM-DD'); default hoje. Opcional para manter
-// compatibilidade com chamadas existentes (treino).
-function registrarFalta(soldadoId, referenciaId, registradoPor, data = null) {
+// ── Registro de falta comum (2 pontos fixos) ─────────────────────────────────
+// `data` = dia da falta ('YYYY-MM-DD'); default hoje. `justificativa` é opcional
+// (motivo da falta) e fica gravada na coluna `observacao`.
+function registrarFalta(soldadoId, registradoPor, data = null, justificativa = null) {
   const db = getDb();
   const soldado = buscarSoldado(db, soldadoId);
   if (!soldado) return null;
 
-  const pontos = calcularPontosFalta(soldado.total_faltas);
+  const pontos = PONTOS_FALTA;
   const novoTotal = soldado.total_pontos + pontos;
   const novoTotalFaltas = soldado.total_faltas + 1;
 
   db.prepare(`
-    INSERT INTO registros_pontos (soldado_id, tipo, pontos, total_acumulado, referencia_id, data_referencia, registrado_por, turma_id)
-    VALUES (?, 'falta', ?, ?, ?, ?, ?, ${TURMA_ATIVA})
-  `).run(soldadoId, pontos, novoTotal, referenciaId ?? null, data ?? hojeISO(), registradoPor ?? null);
+    INSERT INTO registros_pontos (soldado_id, tipo, pontos, total_acumulado, observacao, data_referencia, registrado_por, turma_id)
+    VALUES (?, 'falta', ${PONTOS_FALTA}, ?, ?, ?, ?, ${TURMA_ATIVA})
+  `).run(soldadoId, novoTotal, justificativa ?? null, data ?? hojeISO(), registradoPor ?? null);
 
   db.prepare('UPDATE soldados SET total_pontos = ?, total_faltas = ? WHERE id = ?')
     .run(novoTotal, novoTotalFaltas, soldadoId);
@@ -87,8 +81,9 @@ function registrarFalta(soldadoId, referenciaId, registradoPor, data = null) {
   return { ...verificarExpulsao(db, soldadoId, novoTotal, soldado.total_fatd), pontos, total_acumulado: novoTotal };
 }
 
-// ── Registro de falta em guarda (+20 fixo, não mexe na tabela progressiva) ────
-function registrarFaltaGuarda(soldadoId, escalaId, registradoPor, data = null) {
+// ── Registro de falta em guarda (+20 fixo) ───────────────────────────────────
+// `justificativa` é opcional (motivo) e fica gravada na coluna `observacao`.
+function registrarFaltaGuarda(soldadoId, escalaId, registradoPor, data = null, justificativa = null) {
   const db = getDb();
   const soldado = buscarSoldado(db, soldadoId);
   if (!soldado) return null;
@@ -97,9 +92,9 @@ function registrarFaltaGuarda(soldadoId, escalaId, registradoPor, data = null) {
   const novoTotal = soldado.total_pontos + pontos;
 
   db.prepare(`
-    INSERT INTO registros_pontos (soldado_id, tipo, pontos, total_acumulado, referencia_id, data_referencia, registrado_por, turma_id)
-    VALUES (?, 'falta_guarda', 20, ?, ?, ?, ?, ${TURMA_ATIVA})
-  `).run(soldadoId, novoTotal, escalaId ?? null, data ?? hojeISO(), registradoPor ?? null);
+    INSERT INTO registros_pontos (soldado_id, tipo, pontos, total_acumulado, referencia_id, observacao, data_referencia, registrado_por, turma_id)
+    VALUES (?, 'falta_guarda', 20, ?, ?, ?, ?, ?, ${TURMA_ATIVA})
+  `).run(soldadoId, novoTotal, escalaId ?? null, justificativa ?? null, data ?? hojeISO(), registradoPor ?? null);
 
   db.prepare('UPDATE soldados SET total_pontos = ? WHERE id = ?').run(novoTotal, soldadoId);
 
@@ -193,13 +188,6 @@ function historico(soldadoId) {
   `).all(soldadoId);
 }
 
-// Já existe uma falta registrada para um dado registro_treino?
-function faltaJaRegistrada(referenciaId) {
-  return !!getDb().prepare(
-    "SELECT 1 FROM registros_pontos WHERE tipo = 'falta' AND referencia_id = ? LIMIT 1"
-  ).get(referenciaId);
-}
-
 // Já existe falta em guarda registrada para este soldado nesta escala?
 function faltaGuardaJaRegistrada(soldadoId, escalaId) {
   return !!getDb().prepare(
@@ -217,7 +205,7 @@ function historicoFaltas({ busca, de, ate, tipo } = {}) {
   let q = `
     SELECT rp.id, rp.tipo, rp.pontos, rp.total_acumulado, rp.observacao,
            ${DATA_FALTA} AS data, rp.created_at,
-           s.id AS soldado_id, s.ra, s.nome_completo, s.pelotao,
+           s.id AS soldado_id, s.ra, s.nome_completo, s.nome_guerra, s.pelotao,
            u.nome AS registrado_por_nome
     FROM registros_pontos rp
     JOIN soldados s ON s.id = rp.soldado_id
@@ -227,7 +215,7 @@ function historicoFaltas({ busca, de, ate, tipo } = {}) {
   `;
   const params = [];
   if (tipo === 'falta' || tipo === 'falta_guarda') { q += ' AND rp.tipo = ?'; params.push(tipo); }
-  if (busca) { q += ' AND (s.nome_completo LIKE ? OR s.ra LIKE ?)'; params.push(`%${busca}%`, `%${busca}%`); }
+  if (busca) { q += ' AND (s.nome_completo LIKE ? OR s.nome_guerra LIKE ? OR s.ra LIKE ?)'; params.push(`%${busca}%`, `%${busca}%`, `%${busca}%`); }
   if (de)  { q += ` AND ${DATA_FALTA} >= ?`; params.push(de); }
   if (ate) { q += ` AND ${DATA_FALTA} <= ?`; params.push(ate); }
   q += ` ORDER BY ${DATA_FALTA} DESC, rp.id DESC`;
@@ -243,12 +231,12 @@ function faltasDoDia(data) {
   `).all(data);
 }
 
-// Registra uma falta avulsa (comum ou em guarda) numa data.
-function registrarFaltaIndividual(soldadoId, tipo, data, escalaId, registradoPor) {
+// Registra uma falta avulsa (comum ou em guarda) numa data, com justificativa opcional.
+function registrarFaltaIndividual(soldadoId, tipo, data, escalaId, registradoPor, justificativa = null) {
   if (tipo === 'falta_guarda') {
-    return registrarFaltaGuarda(soldadoId, escalaId ?? null, registradoPor, data);
+    return registrarFaltaGuarda(soldadoId, escalaId ?? null, registradoPor, data, justificativa);
   }
-  return registrarFalta(soldadoId, null, registradoPor, data);
+  return registrarFalta(soldadoId, registradoPor, data, justificativa);
 }
 
 // Registra várias faltas de uma vez. Retorna resumo com expulsões (nome incluso).
@@ -260,13 +248,13 @@ function registrarFaltaLote(data, faltas, registradoPor) {
 
   const aplicar = db.transaction(() => {
     for (const f of faltas) {
-      const r = registrarFaltaIndividual(f.soldado_id, f.tipo, data, f.escala_id ?? null, registradoPor);
+      const r = registrarFaltaIndividual(f.soldado_id, f.tipo, data, f.escala_id ?? null, registradoPor, f.justificativa ?? null);
       if (!r) continue;
       registradas++;
       pontosDistribuidos += r.pontos ?? 0;
       if (r.expulso) {
         const s = buscarSoldado(db, f.soldado_id);
-        expulsoes.push({ soldado_id: f.soldado_id, nome_completo: s?.nome_completo, motivo: r.motivo });
+        expulsoes.push({ soldado_id: f.soldado_id, nome_completo: s?.nome_completo, nome_guerra: s?.nome_guerra, motivo: r.motivo });
       }
     }
   });
@@ -276,14 +264,12 @@ function registrarFaltaLote(data, faltas, registradoPor) {
 }
 
 module.exports = {
-  calcularPontosFalta,
   registrarFalta,
   registrarFaltaGuarda,
   registrarFATD,
   ajustarPontos,
   estornarPonto,
   historico,
-  faltaJaRegistrada,
   faltaGuardaJaRegistrada,
   historicoFaltas,
   faltasDoDia,

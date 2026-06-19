@@ -30,7 +30,7 @@ function TooltipEvolucao({ active, payload }) {
         Nota: <span className={styles.boldNote}>{d.nota_final}</span>
         {' '}<span className={BG_CONCEITO[d.conceito] ?? ''}>{d.conceito}</span>
       </p>
-      <p className={styles.tooltipMuted}>Corrida {d.corrida}m · Flexão {d.flexao} · Abd {d.abdominal}</p>
+      <p className={styles.tooltipMuted}>Corrida {d.corrida}m · Flexão {d.flexao} · Abd {d.abdominal} · Barra {d.barra_resultado ?? '—'}</p>
     </div>
   );
 }
@@ -93,6 +93,7 @@ export default function EvolucaoModal({ soldado, onClose: onFechar }) {
                   <th>Corrida (m)</th>
                   <th>Flexão</th>
                   <th>Abdominal</th>
+                  <th>Barra</th>
                   <th>Nota</th>
                   <th>Conceito</th>
                 </tr>
@@ -104,6 +105,7 @@ export default function EvolucaoModal({ soldado, onClose: onFechar }) {
                     <td>{a.corrida}</td>
                     <td>{a.flexao}</td>
                     <td>{a.abdominal}</td>
+                    <td>{a.barra_resultado ?? '—'}</td>
                     <td className={styles.boldNote}>{a.nota_final}</td>
                     <td><span className={BG_CONCEITO[a.conceito] ?? ''}>{a.conceito}</span></td>
                   </tr>

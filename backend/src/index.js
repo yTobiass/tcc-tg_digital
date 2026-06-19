@@ -14,7 +14,6 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/api/auth',       require('./routes/auth'));
 app.use('/api/usuarios',   require('./routes/usuarios'));
 app.use('/api/soldados',   require('./routes/soldados'));
-app.use('/api/treinos',    require('./routes/treinos'));
 app.use('/api/dashboard',  require('./routes/dashboard'));
 app.use('/api/avaliacoes', require('./routes/avaliacoes'));
 app.use('/api/diario',     require('./routes/diario'));

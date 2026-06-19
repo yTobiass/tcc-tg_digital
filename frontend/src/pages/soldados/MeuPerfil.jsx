@@ -10,6 +10,7 @@ import { soldadosService }   from '../../services/soldadosService';
 import { avaliacoesService } from '../../services/avaliacoesService';
 import { useGuardasSoldado } from '../../hooks/useGuardas';
 import { DisciplinaSecao }   from './DisciplinaSecao';
+import { raExibicao }         from '../../utils/nomes';
 import { BG_CONCEITO }       from '../../utils/tafCalculo';
 import { formatarData }      from '../../utils/data';
 import styles from './MeuPerfil.module.scss';
@@ -53,7 +54,7 @@ function TooltipTAF({ active, payload }) {
         Nota: <strong>{d.nota_final}</strong>{' '}
         <span className={BG_CONCEITO[d.conceito] ?? ''}>{d.conceito}</span>
       </p>
-      <p className={styles.tooltipMuted}>Corrida {d.corrida}m · Flexão {d.flexao} · Abd {d.abdominal}</p>
+      <p className={styles.tooltipMuted}>Corrida {d.corrida}m · Flexão {d.flexao} · Abd {d.abdominal} · Barra {d.barra_resultado ?? '—'}</p>
     </div>
   );
 }
@@ -117,7 +118,7 @@ export default function MeuPerfil() {
             {soldado ? (
               <div>
                 <p className={styles.soldadoName}>{soldado.nome_completo}</p>
-                <p className={styles.soldadoRa}>RA {soldado.ra}</p>
+                <p className={styles.soldadoRa}>RA {raExibicao(soldado.ra)}</p>
                 <InfoRow label="Pelotão"              value={soldado.pelotao} />
                 <InfoRow label="Turma"                value={soldado.turma} />
                 <InfoRow label="Graduação"            value={soldado.graduacao === 'cabo' ? 'Cabo' : 'Atirador'} />
@@ -144,6 +145,7 @@ export default function MeuPerfil() {
                 <div><span className={styles.tafBreakdownVal}>{ultimaTAF.corrida}</span>m corrida</div>
                 <div><span className={styles.tafBreakdownVal}>{ultimaTAF.flexao}</span>flexões</div>
                 <div><span className={styles.tafBreakdownVal}>{ultimaTAF.abdominal}</span>abdominais</div>
+                <div><span className={styles.tafBreakdownVal}>{ultimaTAF.barra_resultado ?? '—'}</span>barra fixa</div>
               </div>
             </div>
           )}
@@ -219,6 +221,7 @@ export default function MeuPerfil() {
                       <th className={styles.centered}>Corrida (m)</th>
                       <th className={styles.centered}>Flexão</th>
                       <th className={styles.centered}>Abdominal</th>
+                      <th className={styles.centered}>Barra</th>
                       <th className={styles.centered}>Nota</th>
                       <th>Conceito</th>
                     </tr>
@@ -230,6 +233,7 @@ export default function MeuPerfil() {
                         <td className={styles.centered}>{a.corrida}</td>
                         <td className={styles.centered}>{a.flexao}</td>
                         <td className={styles.centered}>{a.abdominal}</td>
+                        <td className={styles.centered}>{a.barra_resultado ?? '—'}</td>
                         <td className={`${styles.centered} ${styles.boldCell}`}>{a.nota_final}</td>
                         <td>
                           <span className={`${styles.conceitoBadge} ${BG_CONCEITO[a.conceito] ?? ''}`}>

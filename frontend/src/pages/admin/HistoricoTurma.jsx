@@ -4,6 +4,7 @@ import { Layout } from '../../components/layout/Layout';
 import { turmasService } from '../../services/turmasService';
 import { formatarData } from '../../utils/data';
 import { TIPO_PONTO_LABEL } from '../../utils/pontos';
+import { nomeExibicao, raExibicao } from '../../utils/nomes';
 
 const th = { padding: '10px 8px', textAlign: 'left', color: '#6b7280', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.4, borderBottom: '1px solid #e5e7eb' };
 const td = { padding: '10px 8px', fontSize: 14, borderBottom: '1px solid #f3f4f6' };
@@ -88,8 +89,8 @@ export default function HistoricoTurma() {
                 </tr></thead>
                 <tbody>{lista.map((s) => (
                   <tr key={s.id}>
-                    <td style={td}>{s.ra}</td>
-                    <td style={{ ...td, fontWeight: 600 }}>{s.nome_completo}</td>
+                    <td style={td}>{raExibicao(s.ra)}</td>
+                    <td style={{ ...td, fontWeight: 600 }}>{nomeExibicao(s)}</td>
                     <td style={td}>{s.pelotao || '—'}</td>
                     <td style={td}>{s.graduacao === 'cabo' ? 'Cabo' : 'Atirador'}</td>
                     <td style={td}>{s.status}</td>
@@ -126,7 +127,7 @@ export default function HistoricoTurma() {
                 <tbody>{lista.map((f) => (
                   <tr key={f.id}>
                     <td style={td}>{formatarData(f.data)}</td>
-                    <td style={{ ...td, fontWeight: 600 }}>{f.nome_completo}<span style={{ color: '#9ca3af', fontWeight: 400 }}> · {f.ra}</span></td>
+                    <td style={{ ...td, fontWeight: 600 }}>{nomeExibicao(f)}<span style={{ color: '#9ca3af', fontWeight: 400 }}> · {raExibicao(f.ra)}</span></td>
                     <td style={td}>{f.pelotao || '—'}</td>
                     <td style={td}>{TIPO_PONTO_LABEL[f.tipo] || f.tipo}</td>
                     <td style={{ ...td, textAlign: 'center', color: '#b91c1c', fontWeight: 600 }}>+{f.pontos}</td>
@@ -143,7 +144,7 @@ export default function HistoricoTurma() {
                 <tbody>{lista.map((o) => (
                   <tr key={o.id}>
                     <td style={td}>{o.data ? formatarData(o.data.slice(0, 10)) : '—'}</td>
-                    <td style={{ ...td, fontWeight: 600 }}>{o.nome_completo}<span style={{ color: '#9ca3af', fontWeight: 400 }}> · {o.ra}</span></td>
+                    <td style={{ ...td, fontWeight: 600 }}>{nomeExibicao(o)}<span style={{ color: '#9ca3af', fontWeight: 400 }}> · {raExibicao(o.ra)}</span></td>
                     <td style={td}>{o.tipo || '—'}</td>
                     <td style={td}>{o.descricao}</td>
                   </tr>
