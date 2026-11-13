@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect, useCallback } from 'react';
 import { Layout }         from '../../components/layout/Layout';
 import { escalasService } from '../../services/escalasService';
-import { formatarData }   from '../../utils/data';
+import { formatarData, hoje } from '../../utils/data';
 import { raExibicao }     from '../../utils/nomes';
 import { useAuth }        from '../../hooks/useAuth';
 import EscalaModal        from './EscalaModal';
@@ -21,7 +21,8 @@ function dataISO(ano, mes, dia) {
 }
 function diasNoMes(ano, mes) { return new Date(ano, mes, 0).getDate(); }
 function primeiroDiaDaSemana(ano, mes) { return new Date(ano, mes - 1, 1).getDay(); }
-function hoje() { return new Date().toISOString().slice(0, 10); }
+// `hoje()` vem de utils/data (horário LOCAL). A versão antiga usava toISOString()
+// (UTC): depois das 21h no Brasil ela já devolvia o dia seguinte.
 
 // ── Calendário ────────────────────────────────────────────────────────────────
 
@@ -177,6 +178,11 @@ function FilaView() {
                     <span className={`${styles.statusText} ${styles[`statusText--${row.status}`] ?? ''}`}>
                       {row.status}
                     </span>
+                    {row.ajuste_manual && (
+                      <span className={styles.soldadoRa} title="Movido manualmente — vale até a próxima guarda dele">
+                        {' '}· {row.ajuste_manual === 'inicio' ? 'punido (início)' : 'adiado (fim)'}
+                      </span>
+                    )}
                   </td>
                   <td>{row.ultima_data ? formatarData(row.ultima_data) : '—'}</td>
                   <td>
@@ -347,6 +353,9 @@ export default function Escalas() {
   const [gerando,    setGerando]    = useState(false);
   const [resultado,  setResultado]  = useState(null); // string de resumo
   const [erroGerar,  setErroGerar]  = useState(null);
+  // Incrementado a cada geração/regeneração: força a aba "Fila de Rotação" a
+  // recarregar (antes ela continuava mostrando a fila antiga até trocar de aba).
+  const [filaVersao, setFilaVersao] = useState(0);
 
   const carregarCalendario = useCallback(async (a, m) => {
     setCarregando(true);
@@ -382,6 +391,7 @@ export default function Escalas() {
         `${r.geradas} escalas geradas: ${r.verdes} verdes, ${r.pretas} pretas, ${r.vermelhas} vermelhas` +
         (r.dias_pulados ? ` · ${r.dias_pulados} slots pulados (sem efetivo disponível)` : '')
       );
+      setFilaVersao((v) => v + 1);
       await Promise.all([carregarCalendario(ano, mes), verificarFuturas()]);
     } catch (e) {
       setErroGerar(e?.response?.data?.error || 'Erro ao gerar escalas.');
@@ -501,7 +511,7 @@ export default function Escalas() {
         </div>
       )}
 
-      {aba === 'fila' && <FilaView />}
+      {aba === 'fila' && <FilaView key={filaVersao} />}
 
       {aba === 'bloqueios' && isComandante && <BloqueiosView />}
 

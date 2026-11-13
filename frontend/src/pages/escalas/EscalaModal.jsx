@@ -2,7 +2,7 @@
 import { Modal }          from '../../components/ui/Modal';
 import { escalasService } from '../../services/escalasService';
 import { gerarPdfEscala } from '../../utils/escalaPDF';
-import { formatarData }   from '../../utils/data';
+import { formatarData, hoje } from '../../utils/data';
 import { nomeExibicao, raExibicao }   from '../../utils/nomes';
 import styles from './EscalaModal.module.scss';
 
@@ -185,7 +185,7 @@ function tiposValidosPorData(iso) {
 }
 
 function CriarEscala({ dataInicial, tiposJaUsados = [], onFechar, onCriada }) {
-  const hojeISO = new Date().toISOString().slice(0, 10);
+  const hojeISO = hoje(); // horário local (toISOString() é UTC e vira o dia às 21h)
   const dataInicialEfetiva = dataInicial ?? hojeISO;
 
   const [tipo, setTipo] = useState(() => {
@@ -231,7 +231,7 @@ function CriarEscala({ dataInicial, tiposJaUsados = [], onFechar, onCriada }) {
     } else if (tipo === 'vermelha') {
       const dt = new Date(`${dataInicio}T12:00:00`);
       dt.setDate(dt.getDate() + 1);
-      setDataFim(dt.toISOString().slice(0, 10));
+      setDataFim(`${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`);
     }
   }, [tipo, dataInicio]);
 

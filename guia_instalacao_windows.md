@@ -143,3 +143,25 @@ http://192.168.0.118:5173
 
 **Porta já em uso**
 → Fechar o PowerShell antigo que ainda está rodando o servidor, ou reiniciar o PC.
+
+---
+
+## ATUALIZANDO UMA INSTALAÇÃO QUE JÁ ESTÁ EM USO
+
+> Para não perder os dados: **nunca apague a pasta `backend\data`** (é onde fica o banco)
+> nem o arquivo `backend\.env`.
+
+1. Fechar os PowerShell que estão rodando o sistema.
+2. Fazer uma cópia de segurança da pasta `backend\data`.
+3. Copiar as pastas `backend\src`, `backend\tests` e `frontend\src` da versão nova
+   por cima das antigas (substituir os arquivos).
+4. No PowerShell, dentro de `backend`:
+   ```powershell
+   npm run migrate
+   ```
+5. Subir o sistema normalmente.
+6. No navegador, apertar **Ctrl + F5** para recarregar a tela.
+
+**Mudei a graduação de alguém e a escala não mudou**
+→ A *Fila de Rotação* muda na hora. As escalas já agendadas só mudam depois de
+clicar em **↻ Regenerar Escalas** (tela Escalas de Guarda).

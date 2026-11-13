@@ -50,7 +50,19 @@ export function SoldadoFormModal({ soldado, soldadosExistentes = [], onSalvar, o
     setSalvando(true);
     try {
       if (editando) {
-        await soldadosService.atualizar(soldado.id, form);
+        const salvo = await soldadosService.atualizar(soldado.id, form);
+        // A fila de rotação é atualizada na hora, mas as escalas JÁ agendadas não
+        // mudam sozinhas — avisa quando o soldado ficou escalado de forma
+        // incompatível com a nova graduação/status.
+        if (salvo?.escalas_pendentes > 0) {
+          window.alert(
+            `Cadastro salvo e fila de rotação atualizada.\n\n` +
+            `Atenção: ${salvo.nome_guerra || salvo.nome_completo} ainda aparece em ` +
+            `${salvo.escalas_pendentes} escala(s) futura(s) com a situação antiga.\n` +
+            `Para corrigir, vá em Escalas de Guarda e clique em "Regenerar Escalas" ` +
+            `(ou troque o membro manualmente em cada escala).`
+          );
+        }
       } else {
         await soldadosService.criar(form);
       }

@@ -38,6 +38,12 @@ function validarSoldado(dados, turmaId, soldadoId = null) {
   return null;
 }
 
+// Hoje em 'YYYY-MM-DD' no horário local do servidor.
+function hojeLocalISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function listar(req, res) {
   // Regra de Negócio nº 7: um soldado só enxerga o próprio cadastro.
   if (req.user.role === 'soldado') {
@@ -118,7 +124,11 @@ function atualizar(req, res) {
     if (existente.graduacao !== atualizado.graduacao || existente.status !== atualizado.status) {
       escalas.ressincronizarFilas();
     }
-    res.json(atualizado);
+    // Escalas futuras já agendadas NÃO são alteradas automaticamente: se o
+    // soldado ficou escalado numa função que não é mais a dele (ou não está
+    // mais ativo), devolvemos a contagem para a tela avisar o sargento.
+    const escalas_pendentes = escalas.escalasFuturasIncompativeis(id, hojeLocalISO());
+    res.json({ ...atualizado, escalas_pendentes });
   } catch (err) {
     if (err.message.includes('UNIQUE')) {
       return res.status(400).json({ error: `Já existe um soldado com o RA ${dados.ra} nesta turma.` });

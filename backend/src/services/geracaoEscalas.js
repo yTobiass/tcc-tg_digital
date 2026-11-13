@@ -115,35 +115,26 @@ function gerarEscalasDoAno(usuarioId) {
   return { geradas: verdes + pretas + vermelhas, verdes, pretas, vermelhas, dias_pulados };
 }
 
-// Regenera do zero: cancela as escalas futuras agendadas, recoloca a fila de
-// rotação no estado de baseline e gera novamente.
+// Regenera do zero: cancela as escalas futuras agendadas, reconstrói a fila de
+// rotação a partir do histórico real de guardas e gera novamente.
 function regenerarEscalasDoAno(usuarioId) {
   const db = getDb();
   const hoje = hojeISO();
 
-  db.transaction(() => {
-    // 1. Cancela todas as escalas agendadas a partir de hoje.
-    db.prepare(
-      "UPDATE escalas_guarda SET status = 'cancelada' WHERE status = 'agendada' AND data_inicio >= ?"
-    ).run(hoje);
+  // 1. Cancela todas as escalas agendadas a partir de hoje.
+  db.prepare(
+    "UPDATE escalas_guarda SET status = 'cancelada' WHERE status = 'agendada' AND data_inicio >= ?"
+  ).run(hoje);
 
-    // 2. Reverte a fila de rotação ao estado anterior à geração. Para os
-    //    soldados que guardaram uma posição anterior, restaura-a; em seguida a
-    //    fila é renormalizada por garantirFilas/verificarEReiniciarFila.
-    db.prepare(`
-      UPDATE fila_rotacao
-      SET posicao = posicao_anterior, posicao_anterior = NULL,
-          ultima_escala_id = NULL, ultima_data = NULL
-      WHERE posicao_anterior IS NOT NULL
-    `).run();
-  })();
-
-  model.garantirFilas();
-  model.verificarEReiniciarFila('cabos');
-  model.verificarEReiniciarFila('atiradores');
+  // 2. Recoloca as filas de rotação no estado REAL: quem tirou guarda por último
+  //    vai para o fim, quem nunca tirou fica na frente, respeitando Punir/Adiar.
+  //    (Antes isto restaurava `posicao_anterior`, que só guarda UM passo — depois
+  //    de um ano inteiro gerado, a fila voltava numa ordem sem relação com quem
+  //    de fato já tinha tirado guarda.)
+  model.reconstruirFilas();
 
   // 3. Gera novamente do zero.
   return gerarEscalasDoAno(usuarioId);
 }
 
-module.exports = { gerarEscalasDoAno, regenerarEscalasDoAno };
+module.exports = { gerarEscalasDoAno, regenerarEscalasDoAno, hojeISO };

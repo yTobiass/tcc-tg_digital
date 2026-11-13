@@ -3,7 +3,7 @@ const path = require('path');
 module.exports = {
   client: 'better-sqlite3',
   connection: {
-    filename: path.resolve(__dirname, '../../data/tiro_de_guerra.db'),
+    filename: process.env.DB_PATH || path.resolve(__dirname, '../../data/tiro_de_guerra.db'),
   },
   migrations: {
     directory: path.resolve(__dirname, 'migrations'),

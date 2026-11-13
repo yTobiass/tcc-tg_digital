@@ -1,7 +1,9 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 
-const DB_PATH = path.resolve(__dirname, '../../data/tiro_de_guerra.db');
+// DB_PATH pode ser sobrescrito por variável de ambiente (usado nos testes
+// automatizados para não tocar no banco real).
+const DB_PATH = process.env.DB_PATH || path.resolve(__dirname, '../../data/tiro_de_guerra.db');
 
 let db;
 

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
+    "test": "node --test tests/escalas.test.js",
     "migrate": "knex migrate:latest --knexfile src/database/knexfile.js",
     "migrate:rollback": "knex migrate:rollback --knexfile src/database/knexfile.js",
     "migrate:make": "knex migrate:make --knexfile src/database/knexfile.js"
