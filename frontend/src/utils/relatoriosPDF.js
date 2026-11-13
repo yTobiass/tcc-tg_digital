@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { raExibicao } from './nomes';
+import { hoje } from './data';
 
 const MESES = [
   'janeiro','fevereiro','março','abril','maio','junho',
@@ -13,7 +14,7 @@ function formatarBR(iso) {
 }
 
 function dataExtenso(iso) {
-  const [y, m, d] = (iso || new Date().toISOString().slice(0, 10)).split('-').map(Number);
+  const [y, m, d] = (iso || hoje()).split('-').map(Number);
   return `${d} de ${MESES[m - 1]} de ${y}`;
 }
 

@@ -14,6 +14,24 @@ const TURMA_ATIVA = "(SELECT id FROM turmas WHERE status = 'ativa' ORDER BY ano 
 const FILA_DE = { cabo: 'cabos', atirador: 'atiradores' };
 const GRAD_DA_FILA = { cabos: 'cabo', atiradores: 'atirador' };
 
+// Soldado pertence à turma ativa? (`IS` trata o caso de turma_id nulo.)
+const DA_TURMA_ATIVA = `turma_id IS ${TURMA_ATIVA}`;
+
+// Garante a coluna `ajuste_manual` em fila_rotacao ('inicio' | 'fim' | NULL):
+// marca quem foi movido manualmente (Punir/Adiar) para que a regeneração das
+// escalas respeite a decisão do sargento. É criada pela migration 20240025, mas
+// também é garantida aqui para o sistema não quebrar caso alguém atualize o
+// código e esqueça de rodar `npm run migrate`.
+let _colunaAjusteOk = false;
+function _garantirColunaAjuste(db) {
+  if (_colunaAjusteOk) return;
+  const cols = db.prepare("PRAGMA table_info('fila_rotacao')").all();
+  if (!cols.some((c) => c.name === 'ajuste_manual')) {
+    db.prepare('ALTER TABLE fila_rotacao ADD COLUMN ajuste_manual TEXT').run();
+  }
+  _colunaAjusteOk = true;
+}
+
 function _filaVazia(db, filaTipo) {
   return db.prepare('SELECT COUNT(*) AS c FROM fila_rotacao WHERE tipo_guarda = ?').get(filaTipo).c === 0;
 }
@@ -26,7 +44,7 @@ function _inicializarFilaTipo(db, filaTipo) {
   const graduacao = GRAD_DA_FILA[filaTipo];
   const soldados = db.prepare(`
     SELECT id FROM soldados
-    WHERE graduacao = ? AND status = 'ativo'
+    WHERE graduacao = ? AND status = 'ativo' AND ${DA_TURMA_ATIVA}
     ORDER BY COALESCE(data_incorporacao, created_at) ASC, id ASC
   `).all(graduacao);
 
@@ -39,6 +57,7 @@ function _inicializarFilaTipo(db, filaTipo) {
 // Garante que ambas as filas existam (chamada automaticamente nas operações).
 function garantirFilas() {
   const db = getDb();
+  _garantirColunaAjuste(db);
   db.transaction(() => {
     _inicializarFilaTipo(db, 'cabos');
     _inicializarFilaTipo(db, 'atiradores');
@@ -68,17 +87,18 @@ function inicializarFilas() {
 function _ressincronizarTipo(db, filaTipo) {
   const graduacao = GRAD_DA_FILA[filaTipo];
 
-  // Retira da fila quem não corresponde mais à graduação dela (ou sumiu).
+  // Retira da fila quem não corresponde mais à graduação dela, sumiu ou é de
+  // uma turma já encerrada (cada turma tem a sua própria fila).
   db.prepare(`
     DELETE FROM fila_rotacao
     WHERE tipo_guarda = ?
-      AND soldado_id NOT IN (SELECT id FROM soldados WHERE graduacao = ?)
+      AND soldado_id NOT IN (SELECT id FROM soldados WHERE graduacao = ? AND ${DA_TURMA_ATIVA})
   `).run(filaTipo, graduacao);
 
   // Acrescenta ao fim os ativos com a graduação certa que ainda não estão nela.
   const faltantes = db.prepare(`
     SELECT id FROM soldados
-    WHERE graduacao = ? AND status = 'ativo'
+    WHERE graduacao = ? AND status = 'ativo' AND ${DA_TURMA_ATIVA}
       AND id NOT IN (SELECT soldado_id FROM fila_rotacao WHERE tipo_guarda = ?)
     ORDER BY COALESCE(data_incorporacao, created_at) ASC, id ASC
   `).all(graduacao, filaTipo);
@@ -89,6 +109,7 @@ function _ressincronizarTipo(db, filaTipo) {
 // de Fila de Rotação e após qualquer alteração de graduação/efetivo dos soldados.
 function ressincronizarFilas() {
   const db = getDb();
+  _garantirColunaAjuste(db);
   db.transaction(() => {
     _inicializarFilaTipo(db, 'cabos');
     _inicializarFilaTipo(db, 'atiradores');
@@ -124,7 +145,8 @@ function _avancarParaFim(db, filaTipo, soldadoId, escalaId, dataInicio) {
   ).get(filaTipo).m;
   db.prepare(`
     UPDATE fila_rotacao
-    SET posicao_anterior = ?, posicao = ?, ultima_escala_id = ?, ultima_data = ?
+    SET posicao_anterior = ?, posicao = ?, ultima_escala_id = ?, ultima_data = ?,
+        ajuste_manual = NULL
     WHERE soldado_id = ? AND tipo_guarda = ?
   `).run(atual, maxPos + 1, escalaId ?? null, dataInicio ?? null, soldadoId, filaTipo);
 }
@@ -157,13 +179,81 @@ function verificarEReiniciarFila(filaTipo) {
   }
 }
 
+// Reconstrói a ordem das duas filas a partir do HISTÓRICO REAL de guardas
+// (escalas não canceladas). Usada pela regeneração, logo após cancelar as
+// escalas futuras: as posições que a fila tinha refletiam o ano inteiro já
+// agendado, então precisam voltar a refletir só o que de fato aconteceu.
+//
+// Ordem resultante (posição 1 = próximo a ser escalado):
+//   1. quem o sargento mandou para o INÍCIO (Punir), na ordem em que estava;
+//   2. quem nunca tirou guarda naquela função (mais antigo de incorporação 1º);
+//   3. os demais, de quem tirou guarda há mais tempo para o mais recente;
+//   4. quem o sargento mandou para o FIM (Adiar).
+function reconstruirFilas() {
+  const db = getDb();
+  ressincronizarFilas();
+  db.transaction(() => {
+    for (const filaTipo of ['cabos', 'atiradores']) {
+      const funcao = GRAD_DA_FILA[filaTipo];
+      const linhas = db.prepare(`
+        SELECT f.id, f.posicao, f.ajuste_manual,
+               COALESCE(s.data_incorporacao, s.created_at) AS incorp, s.id AS soldado_id,
+               u.data_inicio AS ult_data, u.escala_id AS ult_escala
+        FROM fila_rotacao f
+        JOIN soldados s ON s.id = f.soldado_id
+        LEFT JOIN (
+          SELECT em.soldado_id, e.data_inicio, e.id AS escala_id,
+                 ROW_NUMBER() OVER (PARTITION BY em.soldado_id ORDER BY e.data_inicio DESC, e.id DESC) AS rn
+          FROM escala_membros em
+          JOIN escalas_guarda e ON e.id = em.escala_id
+          WHERE e.status != 'cancelada' AND em.funcao = ?
+        ) u ON u.soldado_id = f.soldado_id AND u.rn = 1
+        WHERE f.tipo_guarda = ?
+      `).all(funcao, filaTipo);
+
+      const grupo = (l) => (l.ajuste_manual === 'inicio' ? 0 : l.ajuste_manual === 'fim' ? 3 : l.ult_data == null ? 1 : 2);
+      const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+      linhas.sort((a, b) => {
+        const ga = grupo(a), gb = grupo(b);
+        if (ga !== gb) return ga - gb;
+        if (ga === 1) return cmp(a.incorp ?? '', b.incorp ?? '') || a.soldado_id - b.soldado_id;
+        if (ga === 2) return cmp(a.ult_data, b.ult_data) || a.ult_escala - b.ult_escala || a.posicao - b.posicao;
+        return a.posicao - b.posicao || a.soldado_id - b.soldado_id;
+      });
+
+      const upd = db.prepare(`
+        UPDATE fila_rotacao
+        SET posicao = ?, posicao_anterior = NULL, ultima_escala_id = ?, ultima_data = ?
+        WHERE id = ?
+      `);
+      linhas.forEach((l, i) => upd.run(i + 1, l.ult_escala ?? null, l.ult_data ?? null, l.id));
+    }
+  })();
+}
+
+// Quantas escalas FUTURAS ainda agendadas têm este soldado em situação
+// incompatível com o cadastro atual: escalado numa função diferente da
+// graduação (ex.: rebaixado que continua como cabo) ou não está mais ativo.
+// Serve para avisar o sargento de que é preciso regenerar as escalas (ou trocar
+// o membro manualmente) depois de alterar graduação/status.
+function escalasFuturasIncompativeis(soldadoId, hojeISO) {
+  return getDb().prepare(`
+    SELECT COUNT(*) AS c
+    FROM escala_membros em
+    JOIN escalas_guarda e ON e.id = em.escala_id
+    JOIN soldados s ON s.id = em.soldado_id
+    WHERE em.soldado_id = ? AND e.status = 'agendada' AND e.data_inicio >= ?
+      AND (s.status != 'ativo' OR s.graduacao != em.funcao)
+  `).get(soldadoId, hojeISO).c;
+}
+
 function listarFila(tipo) {
   // Reconcilia antes de listar: garante que a tela sempre reflita o estado atual
   // (promoções/rebaixamentos/remoções) e nunca mostre graduação inconsistente.
   ressincronizarFilas();
   const graduacao = GRAD_DA_FILA[tipo];
   return getDb().prepare(`
-    SELECT f.posicao, f.posicao_anterior, f.ultima_data,
+    SELECT f.posicao, f.posicao_anterior, f.ultima_data, f.ajuste_manual,
            s.id AS soldado_id, s.ra, s.nome_completo, s.nome_guerra, s.status, s.graduacao
     FROM fila_rotacao f
     JOIN soldados s ON s.id = f.soldado_id
@@ -240,7 +330,7 @@ function listarSoldadosElegiveis(tipo) {
   const filtro = tipo === 'verde' ? "AND graduacao = 'atirador'" : '';
   return db.prepare(`
     SELECT id AS soldado_id, ra, nome_completo, nome_guerra, graduacao
-    FROM soldados WHERE status = 'ativo' ${filtro}
+    FROM soldados WHERE status = 'ativo' AND ${DA_TURMA_ATIVA} ${filtro}
     ORDER BY COALESCE(NULLIF(nome_guerra, ''), nome_completo) ASC
   `).all();
 }
@@ -250,19 +340,19 @@ function listarSoldadosElegiveis(tipo) {
 // confirmação/troca de escala).
 function reordenarFila(filaTipo, soldadoId, acao) {
   const db = getDb();
-  garantirFilas();
+  ressincronizarFilas();
   db.transaction(() => {
     if (acao === 'inicio') {
       const min = db.prepare(
         'SELECT COALESCE(MIN(posicao),1) AS m FROM fila_rotacao WHERE tipo_guarda = ?'
       ).get(filaTipo).m;
-      db.prepare('UPDATE fila_rotacao SET posicao = ? WHERE soldado_id = ? AND tipo_guarda = ?')
+      db.prepare("UPDATE fila_rotacao SET posicao = ?, ajuste_manual = 'inicio' WHERE soldado_id = ? AND tipo_guarda = ?")
         .run(min - 1, soldadoId, filaTipo);
     } else {
       const max = db.prepare(
         'SELECT COALESCE(MAX(posicao),0) AS m FROM fila_rotacao WHERE tipo_guarda = ?'
       ).get(filaTipo).m;
-      db.prepare('UPDATE fila_rotacao SET posicao = ? WHERE soldado_id = ? AND tipo_guarda = ?')
+      db.prepare("UPDATE fila_rotacao SET posicao = ?, ajuste_manual = 'fim' WHERE soldado_id = ? AND tipo_guarda = ?")
         .run(max + 1, soldadoId, filaTipo);
     }
   })();
@@ -528,7 +618,7 @@ function removerBloqueio(id) {
 }
 
 module.exports = {
-  garantirFilas, ressincronizarFilas, inicializarFilas, listarFila, sugerirMembros, listarSoldadosElegiveis,
+  garantirFilas, ressincronizarFilas, reconstruirFilas, escalasFuturasIncompativeis, inicializarFilas, listarFila, sugerirMembros, listarSoldadosElegiveis,
   reordenarFila, verificarEReiniciarFila, existeVerdeNoDia, existeEscalaTipoData, existeEscalaCobrindo,
   listarEscalas, buscarEscala, criarEscala, atualizarEscala, alterarMembro,
   alterarStatus, removerEscala, historicoPorSoldado, calendario,
